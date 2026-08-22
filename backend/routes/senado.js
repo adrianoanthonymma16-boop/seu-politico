@@ -124,7 +124,7 @@ rota.get('/analise/:id', async (req, res) => {
             mediaUf,
             ...resumo,
             sinais,
-            despesas: despesas.slice(0, 200),
+            despesas,
         });
     } catch (erro) {
         console.error('[senado/analise]', erro.message);

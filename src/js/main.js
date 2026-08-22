@@ -616,7 +616,7 @@
 
         if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${perfilDespesas.length} despesas.`;
         corpo.innerHTML = filtradas.length
-            ? filtradas.slice(0, 100).map(linhaDespesa).join('')
+            ? filtradas.map(linhaDespesa).join('')
             : '<tr><td colspan="6" class="estado-vazio">Nenhuma despesa encontrada com os filtros aplicados.</td></tr>';
     }
 
@@ -776,7 +776,7 @@
 
         if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${senadorDespesas.length} despesas.`;
         corpo.innerHTML = filtradas.length
-            ? filtradas.slice(0, 100).map((dsp) => `
+            ? filtradas.map((dsp) => `
                 <tr>
                     <td>${escaparHtml(dsp.data || '—')}</td>
                     <td>${MotorAlerta.fmtMes(dsp.mes)}/${dsp.ano}</td>
