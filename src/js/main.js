@@ -34,6 +34,7 @@
     let perfilDespesas = [];
     let senadorDespesas = [];
     let senadorAtualId = null;
+    let presidenteViagens = [];
     function criarOuAtualizar(id, config) {
         // Proteção: se a biblioteca de gráficos não carregou, nunca derruba a página.
         if (typeof Chart === 'undefined') {
@@ -100,38 +101,40 @@
     }
 
     /* ---- FILTROS DE TABELA (gastos por tipo, mês e fornecedor) ---- */
-    function popularTiposFiltro(select, despesas) {
+    function popularTiposFiltro(select, itens, campoTipo = 'tipo') {
         if (!select) return;
-        const tipos = [...new Set(despesas.map((d) => d.tipo).filter(Boolean))]
+        const tipos = [...new Set(itens.map((d) => d[campoTipo]).filter(Boolean))]
             .sort((a, b) => a.localeCompare(b, 'pt-BR'));
         select.innerHTML = '<option value="">Todos os tipos</option>' +
             tipos.map((t) => `<option value="${escaparHtml(t)}">${escaparHtml(t)}</option>`).join('');
     }
 
-    function filtrarDespesas(despesas, { tipo, mes, busca }) {
+    function filtrarDespesas(despesas, { tipo, mes, busca, campoBusca = 'fornecedor' }) {
         return despesas.filter((d) => {
             if (tipo && d.tipo !== tipo) return false;
             if (mes && String(d.mes) !== String(mes)) return false;
-            if (busca && !String(d.fornecedor || '').toLowerCase().includes(busca)) return false;
+            if (busca && !String(d[campoBusca] || '').toLowerCase().includes(busca)) return false;
             return true;
         });
     }
 
     // Liga os controles de filtro a um renderizador de tabela.
-    function ligarFiltrosTabela(prefixo, renderer) {
+    function ligarFiltrosTabela(prefixo, renderer, campoBuscaId) {
         ['filtroTipo', 'filtroMes'].forEach((base) => {
             const el = $(`#${base}${prefixo}`);
             if (el) el.addEventListener('change', renderer);
         });
-        const busca = $(`#filtroFornecedor${prefixo}`);
+        const busca = $(campoBuscaId || `#filtroFornecedor${prefixo}`);
         if (busca) busca.addEventListener('input', renderer);
         const limpar = $(`#botaoLimparFiltros${prefixo}`);
         if (limpar) {
             limpar.addEventListener('click', () => {
-                ['filtroTipo', 'filtroMes', 'filtroFornecedor'].forEach((base) => {
+                ['filtroTipo', 'filtroMes'].forEach((base) => {
                     const el = $(`#${base}${prefixo}`);
                     if (el) el.value = '';
                 });
+                const b = $(campoBuscaId || `#filtroFornecedor${prefixo}`);
+                if (b) b.value = '';
                 renderer();
             });
         }
@@ -1062,21 +1065,10 @@
             }
 
             const viagens = dados.viagens || [];
-            if (corpoViagens) {
-                corpoViagens.innerHTML = viagens.length
-                    ? viagens.map((v) => `
-                        <tr>
-                            <td>${escaparHtml(v.beneficiario)}</td>
-                            <td style="white-space:normal;max-width:320px;">${escaparHtml(v.motivo || '—')}</td>
-                            <td>${escaparHtml(v.tipoViagem || '—')}</td>
-                            <td>${escaparHtml(v.dataInicio || '—')}</td>
-                            <td>${MotorAlerta.fmtBRL(v.valorPassagem)}</td>
-                            <td>${MotorAlerta.fmtBRL(v.valorDiarias)}</td>
-                            <td>${MotorAlerta.fmtBRL(v.valorTotal)}</td>
-                            <td><a href="${escaparHtml(v.linkPortal)}" target="_blank" rel="noopener" title="Abrir comprovante no Portal da Transparência"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Comprovante</a></td>
-                        </tr>`).join('')
-                    : '<tr><td colspan="8" class="estado-vazio">Nenhuma viagem encontrada para o período.</td></tr>';
-            }
+            presidenteViagens = viagens;
+            popularTiposFiltro($('#filtroTipoPresidente'), presidenteViagens, 'tipoViagem');
+            renderizarTabelaViagens();
+            ligarFiltrosTabela('Presidente', renderizarTabelaViagens, '#filtroBeneficiarioPresidente');
 
             set('#avisoGastosPresidente', dados.aviso || '');
         } catch (erro) {
@@ -1084,6 +1076,32 @@
             if (corpoViagens) corpoViagens.innerHTML = `<tr><td colspan="8" class="erro">${escaparHtml(erro.message)}</td></tr>`;
             notificar(erro.message, 'fa-triangle-exclamation');
         }
+    }
+
+    function renderizarTabelaViagens() {
+        const corpo = $('#corpoTabelaViagens');
+        const contagem = $('#contagemViagensPresidente');
+        if (!corpo) return;
+
+        const tipo = $('#filtroTipoPresidente')?.value || '';
+        const mes = $('#filtroMesPresidente')?.value || '';
+        const busca = ($('#filtroBeneficiarioPresidente')?.value || '').toLowerCase().trim();
+        const filtradas = filtrarDespesas(presidenteViagens, { tipo, mes, busca, campoBusca: 'beneficiario' });
+
+        if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${presidenteViagens.length} viagens.`;
+        corpo.innerHTML = filtradas.length
+            ? filtradas.map((v) => `
+                <tr>
+                    <td>${escaparHtml(v.beneficiario)}</td>
+                    <td style="white-space:normal;max-width:320px;">${escaparHtml(v.motivo || '—')}</td>
+                    <td>${escaparHtml(v.tipoViagem || '—')}</td>
+                    <td>${escaparHtml(v.dataInicio || '—')}</td>
+                    <td>${MotorAlerta.fmtBRL(v.valorPassagem)}</td>
+                    <td>${MotorAlerta.fmtBRL(v.valorDiarias)}</td>
+                    <td>${MotorAlerta.fmtBRL(v.valorTotal)}</td>
+                    <td><a href="${escaparHtml(v.linkPortal)}" target="_blank" rel="noopener" title="Abrir comprovante no Portal da Transparência"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Comprovante</a></td>
+                </tr>`).join('')
+            : '<tr><td colspan="8" class="estado-vazio">Nenhuma viagem encontrada com os filtros aplicados.</td></tr>';
     }
 
     function iniciarPresidente() {
