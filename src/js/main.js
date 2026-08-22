@@ -29,6 +29,11 @@
 
     /* ---- REGISTRO DE GRÁFICOS (Chart.js) ---- */
     const graficos = {};
+
+    /* ---- Estado das tabelas de despesas (para os filtros) ---- */
+    let perfilDespesas = [];
+    let senadorDespesas = [];
+    let senadorAtualId = null;
     function criarOuAtualizar(id, config) {
         // Proteção: se a biblioteca de gráficos não carregou, nunca derruba a página.
         if (typeof Chart === 'undefined') {
@@ -92,6 +97,62 @@
                     <p>${texto}</p>
                 </div>`;
         }
+    }
+
+    /* ---- FILTROS DE TABELA (gastos por tipo, mês e fornecedor) ---- */
+    function popularTiposFiltro(select, despesas) {
+        if (!select) return;
+        const tipos = [...new Set(despesas.map((d) => d.tipo).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        select.innerHTML = '<option value="">Todos os tipos</option>' +
+            tipos.map((t) => `<option value="${escaparHtml(t)}">${escaparHtml(t)}</option>`).join('');
+    }
+
+    function filtrarDespesas(despesas, { tipo, mes, busca }) {
+        return despesas.filter((d) => {
+            if (tipo && d.tipo !== tipo) return false;
+            if (mes && String(d.mes) !== String(mes)) return false;
+            if (busca && !String(d.fornecedor || '').toLowerCase().includes(busca)) return false;
+            return true;
+        });
+    }
+
+    // Liga os controles de filtro a um renderizador de tabela.
+    function ligarFiltrosTabela(prefixo, renderer) {
+        ['filtroTipo', 'filtroMes'].forEach((base) => {
+            const el = $(`#${base}${prefixo}`);
+            if (el) el.addEventListener('change', renderer);
+        });
+        const busca = $(`#filtroFornecedor${prefixo}`);
+        if (busca) busca.addEventListener('input', renderer);
+        const limpar = $(`#botaoLimparFiltros${prefixo}`);
+        if (limpar) {
+            limpar.addEventListener('click', () => {
+                ['filtroTipo', 'filtroMes', 'filtroFornecedor'].forEach((base) => {
+                    const el = $(`#${base}${prefixo}`);
+                    if (el) el.value = '';
+                });
+                renderer();
+            });
+        }
+    }
+
+    function linhaDespesa(dsp) {
+        return `
+            <tr>
+                <td>${escaparHtml(dsp.data || '—')}</td>
+                <td>${MotorAlerta.fmtMes(dsp.mes)}/${dsp.ano}</td>
+                <td>${escaparHtml(dsp.tipo || '—')}</td>
+                <td>${escaparHtml(dsp.fornecedor || '—')}</td>
+                <td>${MotorAlerta.fmtBRL(dsp.valor)}</td>
+                <td>
+                    ${dsp.url
+                        ? `<a href="${escaparHtml(dsp.url)}" target="_blank" rel="noopener" title="Abrir comprovante no portal da Câmara">
+                             <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Comprovante
+                           </a>`
+                        : '<span class="texto-muted">—</span>'}
+                </td>
+            </tr>`;
     }
 
     /* ---- NOTIFICAÇÃO (toast) ---- */
@@ -529,30 +590,31 @@
                 });
             }
 
-            // Tabela de despesas.
-            const corpo = $('#corpoTabelaDespesas');
-            const despesas = dados.despesas || [];
-            corpo.innerHTML = despesas.length
-                ? despesas.slice(0, 100).map((dsp) => `
-                    <tr>
-                        <td>${escaparHtml(dsp.data || '—')}</td>
-                        <td>${MotorAlerta.fmtMes(dsp.mes)}/${dsp.ano}</td>
-                        <td>${escaparHtml(dsp.tipo || '—')}</td>
-                        <td>${escaparHtml(dsp.fornecedor || '—')}</td>
-                        <td>${MotorAlerta.fmtBRL(dsp.valor)}</td>
-                        <td>
-                            ${dsp.url
-                                ? `<a href="${escaparHtml(dsp.url)}" target="_blank" rel="noopener" title="Abrir comprovante no portal da Câmara">
-                                     <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Comprovante
-                                   </a>`
-                                : '<span class="texto-muted">—</span>'}
-                        </td>
-                    </tr>`).join('')
-                : '<tr><td colspan="6" class="estado-vazio">Nenhuma despesa encontrada para o período.</td></tr>';
+            // Tabela de despesas (com filtros de tipo, mês e fornecedor).
+            perfilDespesas = dados.despesas || [];
+            popularTiposFiltro($('#filtroTipoDeputado'), perfilDespesas);
+            renderizarTabelaDeputado();
+            ligarFiltrosTabela('Deputado', renderizarTabelaDeputado);
         } catch (erro) {
             renderizarEstadosVazio(cabecalho, 'erro', 'fa-triangle-exclamation', erro.message);
             notificar(erro.message, 'fa-triangle-exclamation');
         }
+    }
+
+    function renderizarTabelaDeputado() {
+        const corpo = $('#corpoTabelaDespesas');
+        const contagem = $('#contagemDespesasDeputado');
+        if (!corpo) return;
+
+        const tipo = $('#filtroTipoDeputado')?.value || '';
+        const mes = $('#filtroMesDeputado')?.value || '';
+        const busca = ($('#filtroFornecedorDeputado')?.value || '').toLowerCase().trim();
+        const filtradas = filtrarDespesas(perfilDespesas, { tipo, mes, busca });
+
+        if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${perfilDespesas.length} despesas.`;
+        corpo.innerHTML = filtradas.length
+            ? filtradas.slice(0, 100).map(linhaDespesa).join('')
+            : '<tr><td colspan="6" class="estado-vazio">Nenhuma despesa encontrada com os filtros aplicados.</td></tr>';
     }
 
     /* ======================================================================
@@ -683,22 +745,48 @@
                 });
             }
 
-            const corpo = $('#corpoTabelaSenador');
-            const despesas = dados.despesas || [];
-            corpo.innerHTML = despesas.length
-                ? despesas.slice(0, 100).map((dsp) => `
-                    <tr>
-                        <td>${escaparHtml(dsp.data || '—')}</td>
-                        <td>${MotorAlerta.fmtMes(dsp.mes)}/${dsp.ano}</td>
-                        <td>${escaparHtml(dsp.tipo || '—')}</td>
-                        <td>${escaparHtml(dsp.fornecedor || '—')}</td>
-                        <td>${MotorAlerta.fmtBRL(dsp.valor)}</td>
-                    </tr>`).join('')
-                : '<tr><td colspan="5" class="estado-vazio">Nenhuma despesa CEAPS encontrada para o período.</td></tr>';
+            // Tabela de despesas CEAPS (com filtros de tipo, mês e fornecedor).
+            senadorDespesas = dados.despesas || [];
+            senadorAtualId = dados.senador ? dados.senador.id : null;
+            popularTiposFiltro($('#filtroTipoSenador'), senadorDespesas);
+            renderizarTabelaSenador();
+            ligarFiltrosTabela('Senador', renderizarTabelaSenador);
         } catch (erro) {
             renderizarEstadosVazio(cabecalho, 'erro', 'fa-triangle-exclamation', erro.message);
             notificar(erro.message, 'fa-triangle-exclamation');
         }
+    }
+
+    function renderizarTabelaSenador() {
+        const corpo = $('#corpoTabelaSenador');
+        const contagem = $('#contagemDespesasSenador');
+        if (!corpo) return;
+
+        const tipo = $('#filtroTipoSenador')?.value || '';
+        const mes = $('#filtroMesSenador')?.value || '';
+        const busca = ($('#filtroFornecedorSenador')?.value || '').toLowerCase().trim();
+        const filtradas = filtrarDespesas(senadorDespesas, { tipo, mes, busca });
+
+        const linkPerfil = senadorAtualId
+            ? `https://www25.senado.leg.br/web/senadores/senador/-/perfil/${encodeURIComponent(senadorAtualId)}`
+            : 'https://www25.senado.leg.br/web/senadores/em-exercicio';
+
+        if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${senadorDespesas.length} despesas.`;
+        corpo.innerHTML = filtradas.length
+            ? filtradas.slice(0, 100).map((dsp) => `
+                <tr>
+                    <td>${escaparHtml(dsp.data || '—')}</td>
+                    <td>${MotorAlerta.fmtMes(dsp.mes)}/${dsp.ano}</td>
+                    <td>${escaparHtml(dsp.tipo || '—')}</td>
+                    <td>${escaparHtml(dsp.fornecedor || '—')}</td>
+                    <td>${MotorAlerta.fmtBRL(dsp.valor)}</td>
+                    <td>
+                        <a href="${escaparHtml(linkPerfil)}" target="_blank" rel="noopener" title="Ver despesas do senador no portal do Senado">
+                            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Comprovante
+                        </a>
+                    </td>
+                </tr>`).join('')
+            : '<tr><td colspan="6" class="estado-vazio">Nenhuma despesa CEAPS encontrada com os filtros aplicados.</td></tr>';
     }
 
     /* ======================================================================
