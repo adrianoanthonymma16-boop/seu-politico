@@ -7,6 +7,7 @@
    ========================================================================== */
 
 const path = require('path');
+const fs = require('fs');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
@@ -17,11 +18,23 @@ const rotaCamara = require('./routes/camara');
 const rotaPortal = require('./routes/portal');
 const rotaSenado = require('./routes/senado');
 const rotaAnalise = require('./routes/analise');
-const { habilitado } = require('./db');
+const { pool, habilitado } = require('./db');
 
 const app = express();
 const PORTA = Number(process.env.PORT) || 3000;
 const RAIZ_FRONT = path.join(__dirname, '..');
+
+/* Aplica o schema do PostgreSQL no boot (idempotente) — útil em deploys. */
+async function garantirSchema() {
+    if (!habilitado) return;
+    try {
+        const sql = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'schema.sql'), 'utf8');
+        await pool.query(sql);
+        console.log('[db] schema garantido.');
+    } catch (erro) {
+        console.warn('[db] falha ao aplicar schema (o cache usa memória):', erro.message);
+    }
+}
 
 app.use(cors());
 app.use(express.json());
@@ -47,7 +60,7 @@ app.use('/api/analise', rotaAnalise);
 app.use(express.static(RAIZ_FRONT));
 
 /* Fallback para SPA simples (roteamento das páginas .html). */
-app.get(['/', '/index.html', '/dashboard.html', '/resultados.html', '/politico.html', '/comparar.html'], (req, res) => {
+app.get(['/', '/index.html', '/dashboard.html', '/resultados.html', '/politico.html', '/comparar.html', '/senadores.html', '/senador.html', '/executivo.html'], (req, res) => {
     const pagina = path.basename(req.path) || 'index.html';
     res.sendFile(path.join(RAIZ_FRONT, pagina === '/' ? 'index.html' : pagina));
 });
@@ -58,13 +71,19 @@ app.use((erro, req, res, next) => {
     res.status(erro.status || 500).json({ erro: 'Erro interno do servidor.' });
 });
 
-app.listen(PORTA, () => {
-    console.log('==============================================');
-    console.log('  SEU POLÍTICO — transparência cidadã');
-    console.log(`  Frontend:   http://localhost:${PORTA}`);
-    console.log(`  API base:   http://localhost:${PORTA}/api`);
-    console.log(`  Modo mock:  ${process.env.USE_MOCK === 'true' ? 'SIM (dados fictícios)' : 'não (API real)'}`);
-    console.log(`  Banco:      ${habilitado ? 'PostgreSQL' : 'em memória (sem DATABASE_URL)'}`);
-    console.log(`  Chave Portal: ${process.env.CHAVE_API_PORTAL ? 'configurada' : 'NÃO configurada (USE_MOCK=true para demo)'}`);
-    console.log('==============================================');
-});
+async function iniciar() {
+    await garantirSchema();
+
+    app.listen(PORTA, () => {
+        console.log('==============================================');
+        console.log('  SEU POLÍTICO — transparência cidadã');
+        console.log(`  Frontend:   http://localhost:${PORTA}`);
+        console.log(`  API base:   http://localhost:${PORTA}/api`);
+        console.log(`  Modo mock:  ${process.env.USE_MOCK === 'true' ? 'SIM (dados fictícios)' : 'não (API real)'}`);
+        console.log(`  Banco:      ${habilitado ? 'PostgreSQL' : 'em memória (sem DATABASE_URL)'}`);
+        console.log(`  Chave Portal: ${process.env.CHAVE_API_PORTAL ? 'configurada' : 'NÃO configurada (USE_MOCK=true para demo)'}`);
+        console.log('==============================================');
+    });
+}
+
+iniciar();

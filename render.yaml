@@ -1,0 +1,36 @@
+# ==========================================================================
+# render.yaml — Blueprint de deploy do Seu Político no Render
+# --------------------------------------------------------------------------
+# Cria o serviço web (Node) + PostgreSQL gerenciado.
+# Depois de criar o serviço, configure a variável secreta CHAVE_API_PORTAL
+# no painel do Render (sync: false abaixo).
+# ==========================================================================
+
+services:
+  - type: web
+    name: seu-politico
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: USE_MOCK
+        value: "false"
+      - key: PORT
+        value: "3000"
+      - key: CHAVE_API_PORTAL
+        sync: false # preencher no painel (secreto)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: seu-politico-db
+          property: connectionString
+
+databases:
+  - name: seu-politico-db
+    databaseName: seupolitico
+    user: seupolitico
+    plan: free

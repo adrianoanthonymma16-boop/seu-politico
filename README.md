@@ -181,6 +181,46 @@ Com `USE_MOCK=true`, o servidor usa **dados fictícios determinísticos**
 100% funcional sem chave e sem banco. Os dados **não** representam pessoas
 reais. Para voltar aos dados reais, troque para `USE_MOCK=false`.
 
+## Deploy (produção)
+
+O projeto já vem pronto para deploy em plataformas que executam Node.
+
+### Render (recomendado — um serviço + PostgreSQL gerenciado)
+
+O repositório inclui um **Blueprint** (`render.yaml`) que cria o serviço web
+(Node) e o PostgreSQL automaticamente:
+
+1. No Render: **New → Blueprint** e aponte para o repositório `seu-politico`.
+2. Após criar, abra o serviço web e adicione a **variável secreta**:
+   `CHAVE_API_PORTAL` (sua chave do Portal da Transparência).
+3. O schema do banco é **aplicado automaticamente** no boot do servidor.
+
+### Railway / Fly.io / qualquer host de container
+
+Use o `Dockerfile` incluído:
+
+```bash
+docker build -t seu-politico .
+docker run -p 3000:3000 \
+  -e CHAVE_API_PORTAL=SUA_CHAVE \
+  -e DATABASE_URL=postgres://... \
+  -e USE_MOCK=false \
+  seu-politico
+```
+
+> ⚠️ Na primeira consulta real, o servidor baixa e importa os arquivos
+> oficiais de cota (Câmara) e CEAPS (Senado) — pode levar alguns segundos.
+> Depois ficam no PostgreSQL.
+
+### Variáveis de ambiente (produção)
+
+| Variável | Obrigatória | Descrição |
+|----------|-------------|-----------|
+| `CHAVE_API_PORTAL` | sim | Chave da API do Portal da Transparência (segredo). |
+| `DATABASE_URL` | sim | Conexão PostgreSQL (cache + cotas/CEAPS). |
+| `USE_MOCK` | não | `false` em produção (padrão já é false). |
+| `PORT` | não | Porta do servidor (Render injeta ou 3000). |
+
 ## Banco de dados (PostgreSQL)
 
 O banco é usado como **cache** das respostas da API, evitando estourar o
