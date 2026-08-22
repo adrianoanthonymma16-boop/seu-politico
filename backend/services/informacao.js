@@ -148,6 +148,7 @@ function periodoEleitoral() {
    ========================================================================== */
 
 const VIAGENS_ORGAOS = [20000, 20101]; // Presidência + Gabinete Pessoal
+const CONTRATOS_ORGAOS = [20000, 20101];
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -274,10 +275,109 @@ async function obterGastosPresidente(ano = new Date().getFullYear()) {
             .map(([beneficiario, valor]) => ({ beneficiario, valor }))
             .sort((a, b) => b.valor - a.valor)
             .slice(0, 10),
-        viagens: viagens.slice(0, 100),
+        viagens,
         sinais,
         aviso: 'Gastos com viagens a serviço da Presidência da República (órgãos 20000 e 20101), publicados no Portal da Transparência. Incluem viagens de servidores e agentes do gabinete presidencial.',
     };
+}
+
+/* ==========================================================================
+   CONTRATOS — Contratos públicos da Presidência da República (Portal)
+   ========================================================================== */
+
+function normalizarContratoPresidencia(c) {
+    const fornecedor = typeof c.fornecedor === 'object' && c.fornecedor !== null
+        ? (c.fornecedor.nome || c.fornecedor.descricao || 'Não informado')
+        : (c.fornecedor || 'Não informado');
+    const assinatura = c.dataAssinatura || '';
+    // dataAssinatura vem como dd/mm/aaaa; também aceita aaaa-mm-dd.
+    const partes = assinatura.includes('-')
+        ? assinatura.split('-')
+        : assinatura.split('/').reverse();
+    const mes = partes.length === 3 ? Number(partes[1]) : null;
+
+    return {
+        id: c.id,
+        numero: c.numero || '',
+        objeto: String(c.objeto || '').replace(/^Objeto:\s*/i, ''),
+        fornecedor: capitalizarNome(fornecedor),
+        cnpjCpf: String(c.cnpjCpf || (typeof c.fornecedor === 'object' ? (c.fornecedor.cnpjCpf || '') : '') || '').replace(/[.\-\/]/g, '').trim(),
+        valorInicial: Number(c.valorInicialCompra) || 0,
+        valorFinal: Number(c.valorFinalCompra) || 0,
+        modalidade: c.modalidadeCompra || '—',
+        situacao: c.situacaoContrato || '—',
+        dataAssinatura: assinatura,
+        mes,
+        vigenciaInicio: c.dataInicioVigencia || '',
+        vigenciaFim: c.dataFimVigencia || '',
+        unidadeGestora: c.unidadeGestora || '—',
+        linkPortal: `https://portaldatransparencia.gov.br/contratos/${c.id}`,
+    };
+}
+
+async function obterContratosPresidencia(ano) {
+    const chave = `portal:contratos:presidencia:${ano}`;
+    const cached = await cache.obter(chave);
+    if (cached) return cached;
+
+    const contratos = [];
+    const vistos = new Set();
+    for (const orgao of CONTRATOS_ORGAOS) {
+        for (let pagina = 1; pagina <= 20; pagina++) {
+            const dados = await requisitarPortal('contratos', {
+                codigoOrgao: orgao, ano, pagina, paginaTamanho: 100,
+            });
+            const lista = Array.isArray(dados) ? dados : [];
+            for (const c of lista) {
+                if (!vistos.has(c.id)) {
+                    vistos.add(c.id);
+                    contratos.push(normalizarContratoPresidencia(c));
+                }
+            }
+            if (lista.length < 100) break;
+        }
+    }
+
+    // Agregações + motor de suspeita.
+    const despesas = contratos.map((c) => ({
+        mes: c.mes,
+        tipo: c.modalidade || 'Não informado',
+        valor: c.valorFinal,
+    }));
+    const resumo = calcularResumo(despesas);
+    const sinais = gerarSinais(despesas, resumo, { nomePolitico: 'Contratos da Presidência da República' });
+
+    const porModalidade = {};
+    const porMes = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, valor: 0 }));
+    const porFornecedor = {};
+    let totalFinal = 0;
+    for (const c of contratos) {
+        totalFinal += c.valorFinal;
+        porModalidade[c.modalidade] = (porModalidade[c.modalidade] || 0) + c.valorFinal;
+        if (c.mes >= 1 && c.mes <= 12) porMes[c.mes - 1].valor += c.valorFinal;
+        porFornecedor[c.fornecedor] = (porFornecedor[c.fornecedor] || 0) + c.valorFinal;
+    }
+
+    const resultado = {
+        ano,
+        totalContratos: contratos.length,
+        totalInicial: contratos.reduce((a, c) => a + c.valorInicial, 0),
+        totalFinal,
+        mediaContrato: contratos.length ? totalFinal / contratos.length : 0,
+        maiorContrato: contratos.length ? contratos[0] : null,
+        porModalidade: Object.entries(porModalidade).map(([modalidade, valor]) => ({ modalidade, valor })),
+        serieMensal: porMes,
+        topFornecedores: Object.entries(porFornecedor)
+            .map(([fornecedor, valor]) => ({ fornecedor, valor }))
+            .sort((a, b) => b.valor - a.valor)
+            .slice(0, 10),
+        contratos: contratos.slice().sort((a, b) => b.valorFinal - a.valorFinal),
+        sinais,
+        aviso: 'Contratos públicos da Presidência da República (órgãos SIAFI 20000 e 20101), publicados no Portal da Transparência.',
+    };
+
+    await cache.gravar(chave, resultado, 6 * 3600);
+    return resultado;
 }
 
 /* ---- Presidente da República ---- */
@@ -332,4 +432,4 @@ async function obterCandidatos() {
     };
 }
 
-module.exports = { obterPresidente, obterCandidatos, obterGastosPresidente, periodoEleitoral };
+module.exports = { obterPresidente, obterCandidatos, obterGastosPresidente, obterContratosPresidencia, periodoEleitoral };

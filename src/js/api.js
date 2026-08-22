@@ -121,6 +121,11 @@ const SeuPoliticoAPI = (() => {
             return requisicao('/informacao/presidente/gastos', { ano });
         },
 
+        /** Contratos públicos da Presidência da República. */
+        obterContratosPresidente(ano) {
+            return requisicao('/informacao/presidente/contratos', { ano });
+        },
+
         /** Candidatos à Presidência (período eleitoral). */
         obterCandidatos() {
             return requisicao('/informacao/candidatos');

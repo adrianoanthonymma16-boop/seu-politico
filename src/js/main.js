@@ -27,6 +27,18 @@
 
     const UFs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
+    // Busca TODOS os deputados (pagina por página), sem limite de 100.
+    async function buscarTodosDeputados(filtros = {}) {
+        const pagina1 = await SeuPoliticoAPI.buscarDeputados({ ...filtros, pagina: 1 });
+        const dados = pagina1.dados || [];
+        const ultima = (pagina1.links && pagina1.links.ultima) || 1;
+        for (let p = 2; p <= ultima; p++) {
+            const r = await SeuPoliticoAPI.buscarDeputados({ ...filtros, pagina: p });
+            dados.push(...(r.dados || []));
+        }
+        return dados;
+    }
+
     /* ---- REGISTRO DE GRÁFICOS (Chart.js) ---- */
     const graficos = {};
 
@@ -35,6 +47,7 @@
     let senadorDespesas = [];
     let senadorAtualId = null;
     let presidenteViagens = [];
+    let presidenteContratos = [];
     function criarOuAtualizar(id, config) {
         // Proteção: se a biblioteca de gráficos não carregou, nunca derruba a página.
         if (typeof Chart === 'undefined') {
@@ -359,8 +372,7 @@
         if (!lista) return;
 
         try {
-            const { dados, links } = await SeuPoliticoAPI.buscarDeputados({ nome, partido, uf });
-            const listaDeputados = dados || [];
+            const listaDeputados = await buscarTodosDeputados({ nome, partido, uf });
 
             if (resumo) {
                 resumo.innerHTML = `<p class="page-subtitle">${listaDeputados.length} parlamentare${listaDeputados.length === 1 ? '' : 's'} encontrado${listaDeputados.length === 1 ? '' : 's'}. Os sinais apontados são neutros — investigue você mesmo.</p>`;
@@ -1104,13 +1116,87 @@
             : '<tr><td colspan="8" class="estado-vazio">Nenhuma viagem encontrada com os filtros aplicados.</td></tr>';
     }
 
+    /* ---- Contratos da Presidência ---- */
+    async function carregarContratosPresidente() {
+        const ano = Number($('#seletorAnoPresidente')?.value || new Date().getFullYear());
+        const set = (id, valor) => { const el = $(id); if (el) el.textContent = valor; };
+        const corpo = $('#corpoTabelaContratosPresidente');
+
+        set('#presContratos', 'Carregando...');
+        set('#presContratosTotal', 'Carregando...');
+        set('#presContratosMedia', 'Carregando...');
+        set('#presContratosMaior', 'Carregando...');
+        if (corpo) corpo.innerHTML = '<tr><td colspan="8" class="carregando">Carregando...</td></tr>';
+
+        try {
+            const dados = await SeuPoliticoAPI.obterContratosPresidente(ano);
+
+            set('#presContratos', String(dados.totalContratos ?? '—'));
+            set('#presContratosTotal', MotorAlerta.fmtBRL(dados.totalFinal));
+            set('#presContratosMedia', MotorAlerta.fmtBRL(dados.mediaContrato));
+            set('#presContratosMaior', dados.maiorContrato ? MotorAlerta.fmtBRL(dados.maiorContrato.valorFinal) : '—');
+
+            renderizarSinais($('#sinaisContratosPresidente'), dados.sinais);
+
+            const porModalidade = dados.porModalidade || [];
+            if (porModalidade.length) {
+                criarOuAtualizar('graficoContratoPresidente', {
+                    type: 'bar',
+                    data: {
+                        labels: porModalidade.map((m) => m.modalidade),
+                        datasets: [{ label: `Contratos em ${ano}`, data: porModalidade.map((m) => m.valor), backgroundColor: coresPaleta[0], borderRadius: 6 }],
+                    },
+                    options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${MotorAlerta.fmtBRL(ctx.parsed.x)}` } } } },
+                });
+            }
+
+            presidenteContratos = dados.contratos || [];
+            popularTiposFiltro($('#filtroTipoContratoPresidente'), presidenteContratos, 'modalidade');
+            renderizarTabelaContratosPresidente();
+            ligarFiltrosTabela('ContratoPresidente', renderizarTabelaContratosPresidente);
+
+            set('#avisoContratosPresidente', dados.aviso || '');
+        } catch (erro) {
+            ['#presContratos', '#presContratosTotal', '#presContratosMedia', '#presContratosMaior'].forEach((id) => set(id, '—'));
+            if (corpo) corpo.innerHTML = `<tr><td colspan="8" class="erro">${escaparHtml(erro.message)}</td></tr>`;
+            notificar(erro.message, 'fa-triangle-exclamation');
+        }
+    }
+
+    function renderizarTabelaContratosPresidente() {
+        const corpo = $('#corpoTabelaContratosPresidente');
+        const contagem = $('#contagemContratosPresidente');
+        if (!corpo) return;
+
+        const tipo = $('#filtroTipoContratoPresidente')?.value || '';
+        const mes = $('#filtroMesContratoPresidente')?.value || '';
+        const busca = ($('#filtroFornecedorContratoPresidente')?.value || '').toLowerCase().trim();
+        const filtradas = filtrarDespesas(presidenteContratos, { tipo, mes, busca, campoBusca: 'fornecedor' });
+
+        if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${presidenteContratos.length} contratos.`;
+        corpo.innerHTML = filtradas.length
+            ? filtradas.map((c) => `
+                <tr>
+                    <td>${escaparHtml(c.numero || '—')}</td>
+                    <td style="white-space:normal;max-width:300px;">${escaparHtml(c.objeto || '—')}</td>
+                    <td>${escaparHtml(c.fornecedor)}</td>
+                    <td>${escaparHtml(c.modalidade || '—')}</td>
+                    <td>${escaparHtml(c.dataAssinatura || '—')}</td>
+                    <td>${MotorAlerta.fmtBRL(c.valorInicial)}</td>
+                    <td>${MotorAlerta.fmtBRL(c.valorFinal)}</td>
+                    <td><a href="${escaparHtml(c.linkPortal)}" target="_blank" rel="noopener" title="Abrir comprovante no Portal da Transparência"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Comprovante</a></td>
+                </tr>`).join('')
+            : '<tr><td colspan="8" class="estado-vazio">Nenhum contrato encontrado com os filtros aplicados.</td></tr>';
+    }
+
     function iniciarPresidente() {
         carregarPresidente();
         carregarGastosPresidente();
+        carregarContratosPresidente();
         const botao = $('#botaoAtualizarGastosPresidente');
-        if (botao) botao.addEventListener('click', carregarGastosPresidente);
+        if (botao) botao.addEventListener('click', () => { carregarGastosPresidente(); carregarContratosPresidente(); });
         const sel = $('#seletorAnoPresidente');
-        if (sel) sel.addEventListener('change', carregarGastosPresidente);
+        if (sel) sel.addEventListener('change', () => { carregarGastosPresidente(); carregarContratosPresidente(); });
     }
 
     /* ======================================================================
@@ -1200,8 +1286,7 @@
         if (!sel1 || !sel2) return;
 
         try {
-            const { dados } = await SeuPoliticoAPI.buscarDeputados({});
-            deputadosCache = dados || [];
+            deputadosCache = await buscarTodosDeputados({});
             const options = deputadosCache.map((d) =>
                 `<option value="${d.id}">${escaparHtml(d.nome)} (${escaparHtml(d.partido || '—')}-${escaparHtml(d.uf || '—')})</option>`).join('');
             sel1.insertAdjacentHTML('beforeend', options);
