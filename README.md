@@ -71,6 +71,8 @@ O **Seu Político** reúne dados de fontes oficiais e apresenta:
 - **Perfil** — histórico de despesas (com **comprovante oficial**) + análise com sinais.
 - **Senadores** — lista e perfil com despesas **CEAPS** (cota parlamentar do Senado).
 - **Contratos (Executivo)** — busca por ministério e tabela de contratos com link de validação no Portal.
+- **Presidente da República** — perfil informativo com resumo, foto e links oficiais.
+- **Candidatos à Presidência** — candidatos registrados para 2026, ativo no período eleitoral (fonte pública, situação oficial no TSE).
 - **Comparar** — gastos lado a lado com gráfico agrupado por categoria.
 
 ## Tecnologias
@@ -95,6 +97,8 @@ seu-politico/
 ├── senadores.html          # Lista de senadores em exercício
 ├── senador.html            # Perfil e análise de um senador (CEAPS)
 ├── executivo.html          # Contratos do Executivo Federal (Portal)
+├── presidente.html         # Perfil informativo do Presidente da República
+├── candidatos.html         # Candidatos à Presidência (período eleitoral)
 ├── comparar.html           # Comparação entre parlamentares
 ├── src/
 │   ├── css/
@@ -115,6 +119,7 @@ seu-politico/
 │   │   ├── camara.js       # Proxy Câmara dos Deputados
 │   │   ├── senado.js       # Senadores + despesas CEAPS
 │   │   ├── portal.js       # Proxy Portal da Transparência (órgãos + contratos)
+│   │   ├── informacao.js   # Presidente e candidatos (Wikipedia)
 │   │   └── analise.js      # Endpoints de análise
 │   └── services/
 │       ├── proxy.js        # Fetch com rate limit e retry em 429
@@ -122,6 +127,7 @@ seu-politico/
 │       ├── deputados.js    # Acesso normalizado à Câmara
 │       ├── cotas.js        # Importação da cota da Câmara (arquivos oficiais)
 │       ├── senado.js       # Acesso normalizado ao Senado (CEAPS)
+│       ├── informacao.js   # Presidente e candidatos 2026 (Wikipedia pt)
 │       ├── orgaosPrincipais.js # Órgãos superiores do Executivo (SIAFI)
 │       ├── motorAlerta.js  # Motor de suspeita (servidor)
 │       └── mockData.js     # Dados fictícios (USE_MOCK=true)

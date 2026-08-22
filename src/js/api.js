@@ -109,6 +109,18 @@ const SeuPoliticoAPI = (() => {
             return requisicao(`/senado/analise/${id}`, { ano });
         },
 
+        /* ---- INFORMAÇÃO (Presidente e Candidatos) ---- */
+
+        /** Perfil informativo do Presidente da República. */
+        obterPresidente() {
+            return requisicao('/informacao/presidente');
+        },
+
+        /** Candidatos à Presidência (período eleitoral). */
+        obterCandidatos() {
+            return requisicao('/informacao/candidatos');
+        },
+
         /* ---- ANÁLISE (MOTOR DE SUSPEITA) ---- */
 
         /** Visão geral agregada (home e dashboard). */

@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Perfil de senador com análise de despesas CEAPS — Seu Político.">
-    <title>Senador — Seu Político</title>
+    <meta name="description" content="Candidatos à Presidência 2026 — Seu Político.">
+    <title>Candidatos à Presidência 2026 — Seu Político</title>
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
@@ -19,10 +19,10 @@
                 </button>
             </div>
             <div id="Pesquisar" role="search">
-                <form class="search-wrapper" id="formBuscaSenado" action="senadores.html" method="get">
-                    <label class="visually-hidden" for="campoBuscaSenado">Buscar senador por nome</label>
-                    <input type="text" id="campoBuscaSenado" name="nome" placeholder="Buscar senador por nome..." autocomplete="off">
-                    <button type="submit" aria-label="Buscar senador">
+                <form class="search-wrapper" id="formBusca" action="resultados.html" method="get">
+                    <label class="visually-hidden" for="campoBusca">Buscar político por nome</label>
+                    <input type="text" id="campoBusca" name="nome" placeholder="Buscar por nome..." autocomplete="off">
+                    <button type="submit" aria-label="Buscar político">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                     </button>
                 </form>
@@ -37,9 +37,9 @@
                     <li><a href="index.html"><i class="fa-solid fa-house" aria-hidden="true"></i> Início</a></li>
                     <li><a href="dashboard.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Dashboard</a></li>
                     <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Parlamentares</a></li>
-                    <li><a href="senadores.html" class="ativo" aria-current="page"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Senadores</a></li>
+                    <li><a href="senadores.html"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Senadores</a></li>
                     <li><a href="presidente.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Presidente</a></li>
-                    <li><a href="candidatos.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Candidatos 2026</a></li>
+                    <li><a href="candidatos.html" class="ativo" aria-current="page"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Candidatos 2026</a></li>
                     <li><a href="executivo.html"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Contratos</a></li>
                     <li><a href="comparar.html"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar</a></li>
                     <li><a href="politico.html"><i class="fa-solid fa-user" aria-hidden="true"></i> Perfil</a></li>
@@ -50,72 +50,21 @@
         </aside>
 
         <main class="main-content" id="conteudoPrincipal">
-            <section class="card perfil-cabecalho" id="perfilSenadorCabecalho" aria-live="polite">
-                <div class="carregando">
+            <h2 class="page-title">Candidatos à Presidência 2026</h2>
+            <p class="page-subtitle">
+                Candidatos registrados para a eleição presidencial de 2026, com dados de
+                fontes públicas. Os dados são informativos — a situação oficial é a do TSE.
+            </p>
+
+            <div id="bannerEleitoral" aria-live="polite"></div>
+            <div id="resumoEleicao" class="card" style="margin:14px 0 22px;" aria-live="polite"></div>
+            <div id="listaCandidatos" class="card-grid" aria-live="polite">
+                <div class="carregando" style="grid-column:1/-1;">
                     <i class="fa-solid fa-circle-notch" aria-hidden="true"></i>
-                    <p>Carregando perfil do senador...</p>
+                    <p>Carregando candidatos...</p>
                 </div>
-            </section>
-
-            <section aria-labelledby="tituloAnaliseSenador">
-                <h3 class="section-title" id="tituloAnaliseSenador"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Análise de gastos (CEAPS)</h3>
-                <div id="listaAlertasSenador" aria-live="polite"></div>
-            </section>
-
-            <section aria-label="Indicadores do senador">
-                <div class="card-grid">
-                    <div class="card">
-                        <div class="card-titulo">Total gasto no ano</div>
-                        <div class="card-valor" id="senadorTotal">—</div>
-                    </div>
-                    <div class="card">
-                        <div class="card-titulo">Média por despesa</div>
-                        <div class="card-valor" id="senadorMedia">—</div>
-                    </div>
-                    <div class="card">
-                        <div class="card-titulo">Nº de despesas</div>
-                        <div class="card-valor" id="senadorQtd">—</div>
-                    </div>
-                    <div class="card">
-                        <div class="card-titulo">Maior despesa</div>
-                        <div class="card-valor" id="senadorMaior">—</div>
-                    </div>
-                </div>
-            </section>
-
-            <section aria-labelledby="tituloGraficoSenador">
-                <h3 class="section-title" id="tituloGraficoSenador"><i class="fa-solid fa-chart-bar" aria-hidden="true"></i> Gastos por categoria</h3>
-                <div class="chart-box">
-                    <canvas id="graficoSenadorBarra" aria-label="Gráfico de barras de gastos por categoria" role="img"></canvas>
-                </div>
-            </section>
-
-            <section aria-labelledby="tituloEvolucaoSenador">
-                <h3 class="section-title" id="tituloEvolucaoSenador"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Evolução mensal dos gastos</h3>
-                <div class="chart-box">
-                    <canvas id="graficoSenadorLinha" aria-label="Gráfico de linha da evolução mensal de gastos" role="img"></canvas>
-                </div>
-            </section>
-
-            <section aria-labelledby="tituloTabelaSenador">
-                <h3 class="section-title" id="tituloTabelaSenador"><i class="fa-solid fa-receipt" aria-hidden="true"></i> Histórico de despesas CEAPS</h3>
-                <div class="tabela-wrapper">
-                    <table class="tabela">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Mês</th>
-                                <th>Tipo</th>
-                                <th>Fornecedor</th>
-                                <th>Valor reembolsado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoTabelaSenador">
-                            <tr><td colspan="5" class="carregando">Carregando...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+            </div>
+            <div id="linksOficiais" style="margin-top:18px;" aria-live="polite"></div>
         </main>
     </div>
 
@@ -138,8 +87,9 @@
                     <li><a href="index.html">Início</a></li>
                     <li><a href="dashboard.html">Dashboard</a></li>
                     <li><a href="senadores.html">Senadores</a></li>
+                    <li><a href="presidente.html">Presidente</a></li>
+                    <li><a href="candidatos.html">Candidatos 2026</a></li>
                     <li><a href="executivo.html">Contratos</a></li>
-                    <li><a href="comparar.html">Comparar gastos</a></li>
                 </ul>
             </div>
             <div class="footer-col">

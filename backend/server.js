@@ -18,6 +18,7 @@ const rotaCamara = require('./routes/camara');
 const rotaPortal = require('./routes/portal');
 const rotaSenado = require('./routes/senado');
 const rotaAnalise = require('./routes/analise');
+const rotaInformacao = require('./routes/informacao');
 const { pool, habilitado } = require('./db');
 
 const app = express();
@@ -55,12 +56,13 @@ app.use('/api/camara', rotaCamara);
 app.use('/api/portal', rotaPortal);
 app.use('/api/senado', rotaSenado);
 app.use('/api/analise', rotaAnalise);
+app.use('/api/informacao', rotaInformacao);
 
 /* Arquivos estáticos do frontend (index.html, dashboard.html, src/, etc.). */
 app.use(express.static(RAIZ_FRONT));
 
 /* Fallback para SPA simples (roteamento das páginas .html). */
-app.get(['/', '/index.html', '/dashboard.html', '/resultados.html', '/politico.html', '/comparar.html', '/senadores.html', '/senador.html', '/executivo.html'], (req, res) => {
+app.get(['/', '/index.html', '/dashboard.html', '/resultados.html', '/politico.html', '/comparar.html', '/senadores.html', '/senador.html', '/executivo.html', '/presidente.html', '/candidatos.html'], (req, res) => {
     const pagina = path.basename(req.path) || 'index.html';
     res.sendFile(path.join(RAIZ_FRONT, pagina === '/' ? 'index.html' : pagina));
 });

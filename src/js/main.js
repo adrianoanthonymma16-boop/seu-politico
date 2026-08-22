@@ -877,6 +877,133 @@
     }
 
     /* ======================================================================
+       PRESIDENTE DA REPÚBLICA (informativo)
+       ====================================================================== */
+    async function carregarPresidente() {
+        const container = $('#perfilPresidente');
+        if (!container) return;
+        try {
+            const { presidente } = await SeuPoliticoAPI.obterPresidente();
+
+            container.innerHTML = `
+                <div class="card perfil-cabecalho">
+                    <div class="perfil-avatar politico-avatar" style="width:96px;height:96px;font-size:44px;">
+                        ${presidente.foto
+                            ? `<img src="${escaparHtml(presidente.foto)}" alt="Foto de ${escaparHtml(presidente.nome)}" style="width:96px;height:96px;border-radius:50%;object-fit:cover;">`
+                            : '<i class="fa-solid fa-user" aria-hidden="true"></i>'}
+                    </div>
+                    <div style="flex:1;min-width:260px;">
+                        <h2>${escaparHtml(presidente.nome)}</h2>
+                        <div class="perfil-dados">
+                            <span><i class="fa-solid fa-building-columns" aria-hidden="true"></i> ${escaparHtml(presidente.partido || '—')}</span>
+                            <span><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Mandato ${escaparHtml(presidente.mandato || '—')}</span>
+                        </div>
+                        <p style="margin-top:12px;color:var(--text-secondary);line-height:1.7;">
+                            ${escaparHtml(presidente.resumo || '')}
+                        </p>
+                        <p style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+                            <a href="${escaparHtml(presidente.links.oficial)}" target="_blank" rel="noopener" class="btn btn-sm">
+                                <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Página oficial (gov.br)
+                            </a>
+                            <a href="${escaparHtml(presidente.links.wikipedia)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">
+                                <i class="fa-brands fa-wikipedia-w" aria-hidden="true"></i> Wikipédia
+                            </a>
+                        </p>
+                    </div>
+                </div>
+                <div class="sinal sinal-comparacao" style="margin-top:16px;">
+                    <span class="sinal-icone" aria-hidden="true">🔍</span>
+                    <div>
+                        <div class="sinal-titulo">Fonte dos dados</div>
+                        <p class="sinal-texto">
+                            Perfil informativo montado com fontes públicas, com link para a
+                            página oficial do Planalto. Não é uma análise de gastos — é informação geral.
+                        </p>
+                    </div>
+                </div>`;
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation', erro.message);
+            notificar(erro.message, 'fa-triangle-exclamation');
+        }
+    }
+
+    /* ======================================================================
+       CANDIDATOS À PRESIDÊNCIA (período eleitoral)
+       ====================================================================== */
+    async function carregarCandidatos() {
+        const banner = $('#bannerEleitoral');
+        const resumo = $('#resumoEleicao');
+        const lista = $('#listaCandidatos');
+        const linksOficiais = $('#linksOficiais');
+        if (!lista) return;
+
+        try {
+            const dados = await SeuPoliticoAPI.obterCandidatos();
+            const eleicao = dados.eleicao || {};
+
+            if (banner) {
+                banner.innerHTML = eleicao.periodoAtivo
+                    ? `<div class="card" style="border-left:4px solid var(--alerta-comparacao);">
+                           <strong><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Período eleitoral ativo</strong>
+                           &nbsp;— Eleição ${eleicao.ano} · ${escaparHtml(eleicao.dataReferencia || '')}.
+                       </div>`
+                    : `<div class="card" style="border-left:4px solid var(--border-medium);">
+                           <strong><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Fora do período eleitoral</strong>
+                           &nbsp;— estes dados são apenas informativos.
+                       </div>`;
+            }
+            if (resumo) {
+                resumo.innerHTML = `<p style="color:var(--text-secondary);line-height:1.7;">${escaparHtml(dados.resumo || '')}</p>`;
+            }
+
+            const candidatos = dados.candidatos || [];
+            if (!candidatos.length) {
+                renderizarEstadosVazio(lista, 'estado-vazio', 'fa-check-to-slot', 'Nenhum candidato listado no momento.');
+            } else {
+                lista.innerHTML = candidatos.map((c) => `
+                    <article class="card" style="display:flex;flex-direction:column;gap:10px;">
+                        <div class="politico-avatar" style="width:72px;height:72px;font-size:30px;align-self:center;">
+                            ${c.foto
+                                ? `<img src="${escaparHtml(c.foto)}" alt="Foto de ${escaparHtml(c.nome)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">`
+                                : '<i class="fa-solid fa-user" aria-hidden="true"></i>'}
+                        </div>
+                        <div style="text-align:center;">
+                            <h3 style="font-family:var(--font-corpo);">${escaparHtml(c.nome)}</h3>
+                            <div style="margin-top:6px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+                                <span class="badge badge-partido">${escaparHtml(c.partido || '—')}</span>
+                                <span class="badge badge-uf">Nº ${c.numero}</span>
+                            </div>
+                        </div>
+                        ${c.vice ? `<p style="font-size:13px;color:var(--text-secondary);text-align:center;">Vice: <strong>${escaparHtml(c.vice)}</strong></p>` : ''}
+                        ${c.coligacao ? `<p style="font-size:12px;color:var(--text-muted);text-align:center;">${escaparHtml(c.coligacao)}</p>` : ''}
+                        <a href="${escaparHtml(c.linkWikipedia)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline" style="justify-content:center;">
+                            <i class="fa-brands fa-wikipedia-w" aria-hidden="true"></i> Perfil
+                        </a>
+                    </article>`).join('');
+            }
+
+            if (linksOficiais) {
+                linksOficiais.innerHTML = `
+                    <div class="sinal sinal-info">
+                        <span class="sinal-icone" aria-hidden="true">🔍</span>
+                        <div>
+                            <div class="sinal-titulo">Confira a situação oficial</div>
+                            <p class="sinal-texto">
+                                Estes dados são informativos e baseados em fontes públicas.
+                                <a href="${escaparHtml(dados.links.tse)}" target="_blank" rel="noopener">Site do TSE</a> ·
+                                <a href="${escaparHtml(dados.links.divulgacao)}" target="_blank" rel="noopener">Divulgação de Candidaturas</a> ·
+                                <a href="${escaparHtml(dados.links.wikipedia)}" target="_blank" rel="noopener">Wikipédia</a>
+                            </p>
+                        </div>
+                    </div>`;
+            }
+        } catch (erro) {
+            renderizarEstadosVazio(lista, 'erro', 'fa-triangle-exclamation', erro.message);
+            notificar(erro.message, 'fa-triangle-exclamation');
+        }
+    }
+
+    /* ======================================================================
        COMPARAÇÃO
        ====================================================================== */
     let deputadosCache = [];
@@ -997,6 +1124,8 @@
         else if ($('#listaSenadores')) carregarSenadores();
         else if ($('#perfilSenadorCabecalho')) carregarSenador();
         else if ($('#seletorOrgaoExecutivo')) iniciarExecutivo();
+        else if ($('#perfilPresidente')) carregarPresidente();
+        else if ($('#listaCandidatos')) carregarCandidatos();
     }
 
     /* ---- ARRANQUE ---- */

@@ -12,6 +12,7 @@ const PORTAL_BASE = 'https://api.portaldatransparencia.gov.br/api-de-dados';
 const CAMARA_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 const SENADO_ADM_BASE = 'https://adm.senado.gov.br/adm-dadosabertos/api/v1';
 const SENADO_LEGIS_BASE = 'https://legis.senado.leg.br/dadosabertos';
+const WIKIPEDIA_API = 'https://pt.wikipedia.org/w/api.php';
 
 const AGUARDAR = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -38,6 +39,7 @@ function criarLimitador(rpm) {
 
 const limitadorPortal = criarLimitador(Number(process.env.PORTAL_RPM) || 350);
 const limitadorCamara = criarLimitador(Number(process.env.CAMARA_RPM) || 120);
+const limitadorWikipedia = criarLimitador(Number(process.env.WIKI_RPM) || 60);
 
 /* ---- Requisição base com retry em 429 ---- */
 async function requisitar(url, headers, limitador, tentativas = 2) {
@@ -119,4 +121,16 @@ function requisitarSenadoLegis(caminho, params = {}) {
     return requisitar(url.toString(), { Accept: 'application/json' }, limitadorCamara);
 }
 
-module.exports = { requisitarPortal, requisitarCamara, requisitarSenadoAdm, requisitarSenadoLegis, PORTAL_BASE, CAMARA_BASE };
+/* ---- Wikipedia (pt.wikipedia.org, MediaWiki API) ---- */
+function requisitarWikipedia(params = {}) {
+    const url = new URL(WIKIPEDIA_API);
+    Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
+    });
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('origin', '*');
+    console.log(`[proxy] Wikipedia GET ${url.search}`);
+    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorWikipedia);
+}
+
+module.exports = { requisitarPortal, requisitarCamara, requisitarSenadoAdm, requisitarSenadoLegis, requisitarWikipedia, PORTAL_BASE, CAMARA_BASE };
