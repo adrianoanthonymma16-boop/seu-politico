@@ -8,8 +8,9 @@
      - Candidatos: template "Candidatos à presidência do Brasil em 2026"
    ========================================================================== */
 
-const { requisitarWikipedia } = require('./proxy');
+const { requisitarWikipedia, requisitarPortal } = require('./proxy');
 const cache = require('./cache');
+const { calcularResumo, gerarSinais } = require('./motorAlerta');
 
 const ARTIGO_ELEICAO = 'Eleição presidencial no Brasil em 2026';
 const TEMPLATE_CANDIDATOS = 'Predefinição:Candidatos à presidência do Brasil em 2026';
@@ -138,6 +139,124 @@ function periodoEleitoral() {
     return agora >= inicio && agora <= fim;
 }
 
+/* ==========================================================================
+   GASTOS — Viagens a serviço da Presidência da República (Portal)
+   --------------------------------------------------------------------------
+   A API do Portal exige período de no máximo 1 mês e um código de órgão.
+   Consultamos, por mês, os órgãos 20000 (Presidência) e 20101 (Gabinete
+   Pessoal) — onde ficam as viagens a serviço do gabinete presidencial.
+   ========================================================================== */
+
+const VIAGENS_ORGAOS = [20000, 20101]; // Presidência + Gabinete Pessoal
+
+const pad = (n) => String(n).padStart(2, '0');
+
+function normalizarViagem(v) {
+    const b = v.beneficiario || {};
+    const dataInicio = v.dataInicioAfastamento || '';
+    const mes = dataInicio ? Number(dataInicio.slice(5, 7)) : (v.viagem?.mes || null);
+    return {
+        id: v.id,
+        beneficiario: b.nome || 'Não informado',
+        cpf: b.cpfFormatado || '',
+        motivo: (v.viagem && v.viagem.motivo) || '',
+        situacao: v.situacao || '',
+        tipoViagem: v.tipoViagem || '',
+        dataInicio,
+        dataFim: v.dataFimAfastamento || '',
+        mes,
+        valorTotal: Number(v.valorTotalViagem) || 0,
+        valorPassagem: Number(v.valorTotalPassagem) || 0,
+        valorDiarias: Number(v.valorTotalDiarias) || 0,
+        valorTaxa: Number(v.valorTotalTaxaAgenciamento) || 0,
+        linkPortal: `https://portaldatransparencia.gov.br/viagens/${v.id}`,
+    };
+}
+
+async function obterViagensPresidencia(ano) {
+    const chave = `portal:viagens:presidencia:${ano}`;
+    const cached = await cache.obter(chave);
+    if (cached) return cached;
+
+    const viagens = [];
+    const vistos = new Set();
+
+    for (const orgao of VIAGENS_ORGAOS) {
+        for (let mes = 1; mes <= 12; mes++) {
+            const ultimoDia = new Date(ano, mes, 0).getDate();
+            const de = `${pad(1)}/${pad(mes)}/${ano}`;
+            const ate = `${pad(ultimoDia)}/${pad(mes)}/${ano}`;
+
+            for (let pagina = 1; pagina <= 10; pagina++) {
+                const dados = await requisitarPortal('viagens', {
+                    codigoOrgao: orgao,
+                    dataIdaDe: de,
+                    dataIdaAte: ate,
+                    dataRetornoDe: de,
+                    dataRetornoAte: ate,
+                    pagina,
+                    paginaTamanho: 100,
+                });
+
+                const lista = Array.isArray(dados) ? dados : [];
+                for (const v of lista) {
+                    if (!vistos.has(v.id)) {
+                        vistos.add(v.id);
+                        viagens.push(normalizarViagem(v));
+                    }
+                }
+                if (lista.length < 100) break;
+            }
+        }
+    }
+
+    viagens.sort((a, b) => (b.valorTotal || 0) - (a.valorTotal || 0));
+    await cache.gravar(chave, viagens, 6 * 3600);
+    return viagens;
+}
+
+async function obterGastosPresidente(ano = new Date().getFullYear()) {
+    const viagens = await obterViagensPresidencia(Number(ano));
+
+    // Mapeia viagens para o formato do motor (despesas) e calcula análise.
+    const despesas = viagens.map((v) => ({
+        mes: v.mes,
+        tipo: v.tipoViagem || 'Não informado',
+        valor: v.valorTotal,
+    }));
+    const resumo = calcularResumo(despesas);
+    const sinais = gerarSinais(despesas, resumo, { nomePolitico: 'Presidência da República' });
+
+    // Agregações específicas.
+    const porTipo = {};
+    const porMes = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, valor: 0 }));
+    const porBeneficiario = {};
+    let total = 0;
+    for (const v of viagens) {
+        total += v.valorTotal;
+        porTipo[v.tipoViagem] = (porTipo[v.tipoViagem] || 0) + v.valorTotal;
+        if (v.mes >= 1 && v.mes <= 12) porMes[v.mes - 1].valor += v.valorTotal;
+        porBeneficiario[v.beneficiario] = (porBeneficiario[v.beneficiario] || 0) + v.valorTotal;
+    }
+
+    return {
+        ano,
+        totalViagens: viagens.length,
+        totalGasto: total,
+        mediaViagem: viagens.length ? total / viagens.length : 0,
+        maiorViagem: viagens.length ? viagens[0] : null,
+        porTipo: Object.entries(porTipo).map(([tipo, valor]) => ({ tipo, valor })),
+        serieMensal: porMes,
+        topBeneficiarios: Object.entries(porBeneficiario)
+            .map(([beneficiario, valor]) => ({ beneficiario, valor }))
+            .sort((a, b) => b.valor - a.valor)
+            .slice(0, 10),
+        viagens: viagens.slice(0, 100),
+        sinais,
+        aviso: 'Gastos com viagens a serviço da Presidência da República (órgãos 20000 e 20101), publicados no Portal da Transparência. Incluem viagens de servidores e agentes do gabinete presidencial.',
+    };
+}
+
 /* ---- Presidente da República ---- */
 async function obterPresidente() {
     const artigo = await obterArtigo(ARTIGO_PRESIDENTE, 4);
@@ -190,4 +309,4 @@ async function obterCandidatos() {
     };
 }
 
-module.exports = { obterPresidente, obterCandidatos, periodoEleitoral };
+module.exports = { obterPresidente, obterCandidatos, obterGastosPresidente, periodoEleitoral };

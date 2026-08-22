@@ -927,6 +927,83 @@
         }
     }
 
+    /* ---- Gastos do presidente (viagens a serviço da Presidência) ---- */
+    async function carregarGastosPresidente() {
+        const ano = Number($('#seletorAnoPresidente')?.value || new Date().getFullYear());
+        const set = (id, valor) => { const el = $(id); if (el) el.textContent = valor; };
+
+        set('#presViagens', 'Carregando...');
+        set('#presTotal', 'Carregando...');
+        set('#presMedia', 'Carregando...');
+        set('#presMaior', 'Carregando...');
+        set('#corpoTabelaViagens', '<tr><td colspan="8" class="carregando">Carregando...</td></tr>');
+
+        try {
+            const dados = await SeuPoliticoAPI.obterGastosPresidente(ano);
+
+            set('#presViagens', String(dados.totalViagens ?? '—'));
+            set('#presTotal', MotorAlerta.fmtBRL(dados.totalGasto));
+            set('#presMedia', MotorAlerta.fmtBRL(dados.mediaViagem));
+            set('#presMaior', dados.maiorViagem ? MotorAlerta.fmtBRL(dados.maiorViagem.valorTotal) : '—');
+
+            renderizarSinais($('#sinaisGastosPresidente'), dados.sinais);
+
+            const porTipo = dados.porTipo || [];
+            if (porTipo.length) {
+                criarOuAtualizar('graficoPresidenteTipo', {
+                    type: 'bar',
+                    data: {
+                        labels: porTipo.map((t) => t.tipo),
+                        datasets: [{ label: `Gastos em ${ano}`, data: porTipo.map((t) => t.valor), backgroundColor: coresPaleta[0], borderRadius: 6 }],
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${MotorAlerta.fmtBRL(ctx.parsed.y)}` } } } },
+                });
+            }
+
+            const serie = (dados.serieMensal || []).filter((s) => s.valor > 0);
+            if (serie.length) {
+                criarOuAtualizar('graficoPresidenteMensal', {
+                    type: 'line',
+                    data: {
+                        labels: serie.map((s) => String(s.mes).padStart(2, '0')),
+                        datasets: [{ label: `Gastos em ${ano}`, data: serie.map((s) => s.valor), borderColor: coresPaleta[3], backgroundColor: coresPaleta[3] + '22', fill: true, tension: 0.3 }],
+                    },
+                    options: { responsive: true, plugins: { tooltip: { callbacks: { label: (ctx) => ` Mês ${ctx.label}: ${MotorAlerta.fmtBRL(ctx.parsed.y)}` } } } },
+                });
+            }
+
+            const viagens = dados.viagens || [];
+            set('#corpoTabelaViagens', viagens.length
+                ? viagens.map((v) => `
+                    <tr>
+                        <td>${escaparHtml(v.beneficiario)}</td>
+                        <td style="white-space:normal;max-width:320px;">${escaparHtml(v.motivo || '—')}</td>
+                        <td>${escaparHtml(v.tipoViagem || '—')}</td>
+                        <td>${escaparHtml(v.dataInicio || '—')}</td>
+                        <td>${MotorAlerta.fmtBRL(v.valorPassagem)}</td>
+                        <td>${MotorAlerta.fmtBRL(v.valorDiarias)}</td>
+                        <td>${MotorAlerta.fmtBRL(v.valorTotal)}</td>
+                        <td><a href="${escaparHtml(v.linkPortal)}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Portal</a></td>
+                    </tr>`).join('')
+                : '<tr><td colspan="8" class="estado-vazio">Nenhuma viagem encontrada para o período.</td></tr>');
+
+            set('#avisoGastosPresidente', dados.aviso || '');
+        } catch (erro) {
+            ['#presViagens', '#presTotal', '#presMedia', '#presMaior'].forEach((id) => set(id, '—'));
+            set('#corpoTabelaViagens', `<tr><td colspan="8" class="erro">${escaparHtml(erro.message)}</td></tr>`);
+            notificar(erro.message, 'fa-triangle-exclamation');
+        }
+    }
+
+    function iniciarPresidente() {
+        carregarPresidente();
+        carregarGastosPresidente();
+        const botao = $('#botaoAtualizarGastosPresidente');
+        if (botao) botao.addEventListener('click', carregarGastosPresidente);
+        const sel = $('#seletorAnoPresidente');
+        if (sel) sel.addEventListener('change', carregarGastosPresidente);
+    }
+
     /* ======================================================================
        CANDIDATOS À PRESIDÊNCIA (período eleitoral)
        ====================================================================== */
@@ -1124,7 +1201,7 @@
         else if ($('#listaSenadores')) carregarSenadores();
         else if ($('#perfilSenadorCabecalho')) carregarSenador();
         else if ($('#seletorOrgaoExecutivo')) iniciarExecutivo();
-        else if ($('#perfilPresidente')) carregarPresidente();
+        else if ($('#perfilPresidente')) iniciarPresidente();
         else if ($('#listaCandidatos')) carregarCandidatos();
     }
 

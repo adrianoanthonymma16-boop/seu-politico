@@ -62,6 +62,84 @@
                     <p>Carregando perfil do presidente...</p>
                 </div>
             </section>
+
+            <!-- Análise de gastos -->
+            <section aria-labelledby="tituloGastosPresidente" style="margin-top:28px;">
+                <h3 class="section-title" id="tituloGastosPresidente">
+                    <i class="fa-solid fa-plane" aria-hidden="true"></i> Análise de gastos — Viagens a serviço da Presidência
+                </h3>
+                <p class="page-subtitle">
+                    Viagens a serviço da Presidência da República (Portal da Transparência),
+                    com padrões apontados de forma neutra.
+                </p>
+
+                <div class="card" style="margin-bottom:18px;">
+                    <label for="seletorAnoPresidente" style="font-weight:600;margin-right:10px;">Ano de referência:</label>
+                    <select id="seletorAnoPresidente" aria-label="Selecionar ano de referência">
+                        <option value="2026">2026</option>
+                        <option value="2025" selected>2025</option>
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                    </select>
+                    <button class="btn btn-sm" id="botaoAtualizarGastosPresidente" style="margin-left:10px;">
+                        <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
+                    </button>
+                </div>
+
+                <div id="sinaisGastosPresidente" aria-live="polite"></div>
+
+                <section aria-label="Indicadores de viagens" style="margin:16px 0;">
+                    <div class="card-grid">
+                        <div class="card">
+                            <div class="card-titulo">Viagens no período</div>
+                            <div class="card-valor" id="presViagens">—</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-titulo">Total gasto</div>
+                            <div class="card-valor" id="presTotal">—</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-titulo">Média por viagem</div>
+                            <div class="card-valor" id="presMedia">—</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-titulo">Maior viagem</div>
+                            <div class="card-valor" id="presMaior">—</div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="chart-box">
+                    <canvas id="graficoPresidenteTipo" aria-label="Gráfico de gastos por tipo de viagem" role="img"></canvas>
+                </div>
+                <div class="chart-box" style="margin-top:18px;">
+                    <canvas id="graficoPresidenteMensal" aria-label="Gráfico de linha da evolução mensal das viagens" role="img"></canvas>
+                </div>
+
+                <section aria-labelledby="tituloTabelaViagens" style="margin-top:22px;">
+                    <h3 class="section-title" id="tituloTabelaViagens"><i class="fa-solid fa-list" aria-hidden="true"></i> Viagens (maiores gastos)</h3>
+                    <div class="tabela-wrapper">
+                        <table class="tabela">
+                            <thead>
+                                <tr>
+                                    <th>Beneficiário</th>
+                                    <th>Motivo</th>
+                                    <th>Tipo</th>
+                                    <th>Início</th>
+                                    <th>Passagem</th>
+                                    <th>Diárias</th>
+                                    <th>Total</th>
+                                    <th>Validar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpoTabelaViagens">
+                                <tr><td colspan="8" class="carregando">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p id="avisoGastosPresidente" style="margin-top:12px;font-size:13px;color:var(--text-muted);"></p>
+                </section>
+            </section>
         </main>
     </div>
 

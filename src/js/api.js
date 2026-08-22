@@ -116,6 +116,11 @@ const SeuPoliticoAPI = (() => {
             return requisicao('/informacao/presidente');
         },
 
+        /** Gastos do presidente (viagens a serviço da Presidência). */
+        obterGastosPresidente(ano) {
+            return requisicao('/informacao/presidente/gastos', { ano });
+        },
+
         /** Candidatos à Presidência (período eleitoral). */
         obterCandidatos() {
             return requisicao('/informacao/candidatos');
