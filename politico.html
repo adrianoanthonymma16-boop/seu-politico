@@ -58,6 +58,21 @@
                 </div>
             </section>
 
+            <!-- Seletor de ano (todas as despesas do deputado) -->
+            <div class="card" style="margin:14px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <label for="seletorAnoDeputado" style="font-weight:600;"><i class="fa-solid fa-calendar" aria-hidden="true"></i> Ano de referência:</label>
+                <select id="seletorAnoDeputado" aria-label="Selecionar ano de referência">
+                    <option value="2026">2026</option>
+                    <option value="2025" selected>2025</option>
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                </select>
+                <span style="font-size:13px;color:var(--text-muted);">
+                    Todas as despesas da cota parlamentar do ano selecionado, conforme dados públicos da Câmara.
+                </span>
+            </div>
+
             <!-- Alertas / análise -->
             <section aria-labelledby="tituloAnalise">
                 <h3 class="section-title" id="tituloAnalise"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Análise de gastos</h3>

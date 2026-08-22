@@ -68,8 +68,8 @@ O **Seu Político** reúne dados de fontes oficiais e apresenta:
 - **Página inicial** — buscador (nome, partido, estado), indicadores gerais e destaques.
 - **Dashboard** — gastos por categoria, evolução mensal, top fornecedores e indicadores.
 - **Parlamentares** — lista **completa** de deputados (todas as páginas) com atalhos para analisar/comparar.
-- **Perfil** — histórico de **todas as despesas** com **filtros por tipo, mês e fornecedor** e **comprovante oficial** + análise com sinais.
-- **Senadores** — lista e perfil com despesas **CEAPS** (cota parlamentar do Senado), também com filtros e comprovante.
+- **Perfil** — histórico de **TODAS as despesas de TODOS os anos** (seletor 2022–2026) com **filtros por tipo, mês e fornecedor** e **comprovante oficial** + análise com sinais.
+- **Senadores** — lista e perfil com **todas as despesas CEAPS por ano** (cota parlamentar do Senado), com filtros e comprovante.
 - **Contratos (Executivo)** — busca por ministério e tabela de contratos com link de validação no Portal.
 - **Presidente da República** — perfil informativo com resumo, foto e links oficiais, **mais análise de gastos completa**: todas as **viagens a serviço** e **contratos da Presidência**, com filtros, indicadores, sinais e comprovante no Portal.
 - **Candidatos à Presidência** — candidatos registrados para 2026, ativo no período eleitoral (fonte pública, situação oficial no TSE).

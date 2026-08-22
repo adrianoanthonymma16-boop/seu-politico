@@ -525,8 +525,13 @@
             return;
         }
 
+        const seletorAno = $('#seletorAnoDeputado');
+        const anoParam = Number(lerParametro('ano'));
+        const anoSelecionado = anoParam || Number(seletorAno?.value) || new Date().getFullYear();
+        if (seletorAno) seletorAno.value = String(anoSelecionado);
+
         try {
-            const dados = await SeuPoliticoAPI.analiseDeputado(id);
+            const dados = await SeuPoliticoAPI.analiseDeputado(id, anoSelecionado);
             const d = dados.deputado || {};
             const ano = dados.ano || '';
 
@@ -616,6 +621,19 @@
         }
     }
 
+    function iniciarPerfil() {
+        const sel = $('#seletorAnoDeputado');
+        if (sel) {
+            sel.addEventListener('change', () => {
+                const url = new URL(window.location);
+                url.searchParams.set('ano', sel.value);
+                history.replaceState(null, '', url);
+                carregarPerfil();
+            });
+        }
+        carregarPerfil();
+    }
+
     function renderizarTabelaDeputado() {
         const corpo = $('#corpoTabelaDespesas');
         const contagem = $('#contagemDespesasDeputado');
@@ -698,8 +716,13 @@
             return;
         }
 
+        const seletorAno = $('#seletorAnoSenador');
+        const anoParam = Number(lerParametro('ano'));
+        const anoSelecionado = anoParam || Number(seletorAno?.value) || new Date().getFullYear();
+        if (seletorAno) seletorAno.value = String(anoSelecionado);
+
         try {
-            const dados = await SeuPoliticoAPI.analiseSenador(id);
+            const dados = await SeuPoliticoAPI.analiseSenador(id, anoSelecionado);
             const s = dados.senador || {};
             const ano = dados.ano || '';
 
@@ -770,6 +793,19 @@
             renderizarEstadosVazio(cabecalho, 'erro', 'fa-triangle-exclamation', erro.message);
             notificar(erro.message, 'fa-triangle-exclamation');
         }
+    }
+
+    function iniciarSenador() {
+        const sel = $('#seletorAnoSenador');
+        if (sel) {
+            sel.addEventListener('change', () => {
+                const url = new URL(window.location);
+                url.searchParams.set('ano', sel.value);
+                history.replaceState(null, '', url);
+                carregarSenador();
+            });
+        }
+        carregarSenador();
     }
 
     function renderizarTabelaSenador() {
@@ -1390,10 +1426,10 @@
         if ($('#indicadoresGerais')) carregarHome();
         else if ($('#listaResultados')) carregarResultados();
         else if ($('#seletorAnoDashboard')) iniciarDashboard();
-        else if ($('#perfilCabecalho')) carregarPerfil();
+        else if ($('#perfilCabecalho')) iniciarPerfil();
         else if ($('#seletorDep1')) iniciarComparar();
         else if ($('#listaSenadores')) carregarSenadores();
-        else if ($('#perfilSenadorCabecalho')) carregarSenador();
+        else if ($('#perfilSenadorCabecalho')) iniciarSenador();
         else if ($('#seletorOrgaoExecutivo')) iniciarExecutivo();
         else if ($('#perfilPresidente')) iniciarPresidente();
         else if ($('#listaCandidatos')) carregarCandidatos();

@@ -57,6 +57,21 @@
                 </div>
             </section>
 
+            <!-- Seletor de ano (todas as despesas do senador) -->
+            <div class="card" style="margin:14px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <label for="seletorAnoSenador" style="font-weight:600;"><i class="fa-solid fa-calendar" aria-hidden="true"></i> Ano de referência:</label>
+                <select id="seletorAnoSenador" aria-label="Selecionar ano de referência">
+                    <option value="2026">2026</option>
+                    <option value="2025" selected>2025</option>
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                </select>
+                <span style="font-size:13px;color:var(--text-muted);">
+                    Todas as despesas CEAPS (cota parlamentar) do ano selecionado, conforme dados públicos do Senado.
+                </span>
+            </div>
+
             <section aria-labelledby="tituloAnaliseSenador">
                 <h3 class="section-title" id="tituloAnaliseSenador"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Análise de gastos (CEAPS)</h3>
                 <div id="listaAlertasSenador" aria-live="polite"></div>
