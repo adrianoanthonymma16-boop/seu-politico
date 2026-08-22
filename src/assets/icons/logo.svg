@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#007bff"/>
+      <stop offset="1" stop-color="#0056b3"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+  <text x="64" y="52" font-family="Georgia, serif" font-size="42" font-weight="bold"
+        fill="#ffffff" text-anchor="middle" letter-spacing="1">SEU</text>
+  <text x="64" y="88" font-family="Georgia, serif" font-size="42" font-weight="bold"
+        fill="#ffd76e" text-anchor="middle" letter-spacing="1">Político</text>
+  <path d="M22 102 l10 10 14-16" stroke="#ffffff" stroke-width="6" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="104" cy="24" r="12" fill="#ffd76e"/>
+  <path d="M99 24 l4 5 7 -9" stroke="#0056b3" stroke-width="3" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

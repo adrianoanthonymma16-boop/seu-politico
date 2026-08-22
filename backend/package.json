@@ -1,0 +1,29 @@
+{
+  "name": "seu-politico-backend",
+  "version": "1.0.0",
+  "description": "Proxy e análise do Seu Político — integra Portal da Transparência e Câmara dos Deputados.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "schema": "node scripts/rodarSchema.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "transparencia",
+    "portal-da-transparencia",
+    "camara-dos-deputados",
+    "gastos-publicos"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}
