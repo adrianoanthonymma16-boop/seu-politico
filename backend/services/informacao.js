@@ -151,17 +151,40 @@ const VIAGENS_ORGAOS = [20000, 20101]; // Presidência + Gabinete Pessoal
 
 const pad = (n) => String(n).padStart(2, '0');
 
+/* Capitaliza nomes próprios (a API retorna em CAIXA ALTA, sem acentos). */
+function capitalizarNome(nome) {
+    const conectivos = new Set([
+        'da', 'de', 'do', 'das', 'dos', 'e', 'em', 'na', 'no', 'nas', 'nos',
+        'a', 'o', 'ao', 'aos', 'com', 'por', 'para', 'à', 'é',
+    ]);
+    return String(nome || '')
+        .toLowerCase()
+        .split(/\s+/)
+        .map((parte) => {
+            if (!parte) return parte;
+            if (parte.includes('-')) {
+                return parte.split('-')
+                    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+                    .join('-');
+            }
+            if (conectivos.has(parte)) return parte;
+            return parte.charAt(0).toUpperCase() + parte.slice(1);
+        })
+        .join(' ');
+}
+
 function normalizarViagem(v) {
     const b = v.beneficiario || {};
     const dataInicio = v.dataInicioAfastamento || '';
     const mes = dataInicio ? Number(dataInicio.slice(5, 7)) : (v.viagem?.mes || null);
     return {
         id: v.id,
-        beneficiario: b.nome || 'Não informado',
+        beneficiario: capitalizarNome(b.nome || 'Não informado'),
         cpf: b.cpfFormatado || '',
         motivo: (v.viagem && v.viagem.motivo) || '',
         situacao: v.situacao || '',
         tipoViagem: v.tipoViagem || '',
+        numPcdp: (v.viagem && v.viagem.numPcdp) || '',
         dataInicio,
         dataFim: v.dataFimAfastamento || '',
         mes,

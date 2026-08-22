@@ -936,7 +936,8 @@
         set('#presTotal', 'Carregando...');
         set('#presMedia', 'Carregando...');
         set('#presMaior', 'Carregando...');
-        set('#corpoTabelaViagens', '<tr><td colspan="8" class="carregando">Carregando...</td></tr>');
+        const corpoViagens = $('#corpoTabelaViagens');
+        if (corpoViagens) corpoViagens.innerHTML = '<tr><td colspan="8" class="carregando">Carregando...</td></tr>';
 
         try {
             const dados = await SeuPoliticoAPI.obterGastosPresidente(ano);
@@ -973,24 +974,26 @@
             }
 
             const viagens = dados.viagens || [];
-            set('#corpoTabelaViagens', viagens.length
-                ? viagens.map((v) => `
-                    <tr>
-                        <td>${escaparHtml(v.beneficiario)}</td>
-                        <td style="white-space:normal;max-width:320px;">${escaparHtml(v.motivo || '—')}</td>
-                        <td>${escaparHtml(v.tipoViagem || '—')}</td>
-                        <td>${escaparHtml(v.dataInicio || '—')}</td>
-                        <td>${MotorAlerta.fmtBRL(v.valorPassagem)}</td>
-                        <td>${MotorAlerta.fmtBRL(v.valorDiarias)}</td>
-                        <td>${MotorAlerta.fmtBRL(v.valorTotal)}</td>
-                        <td><a href="${escaparHtml(v.linkPortal)}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Portal</a></td>
-                    </tr>`).join('')
-                : '<tr><td colspan="8" class="estado-vazio">Nenhuma viagem encontrada para o período.</td></tr>');
+            if (corpoViagens) {
+                corpoViagens.innerHTML = viagens.length
+                    ? viagens.map((v) => `
+                        <tr>
+                            <td>${escaparHtml(v.beneficiario)}</td>
+                            <td style="white-space:normal;max-width:320px;">${escaparHtml(v.motivo || '—')}</td>
+                            <td>${escaparHtml(v.tipoViagem || '—')}</td>
+                            <td>${escaparHtml(v.dataInicio || '—')}</td>
+                            <td>${MotorAlerta.fmtBRL(v.valorPassagem)}</td>
+                            <td>${MotorAlerta.fmtBRL(v.valorDiarias)}</td>
+                            <td>${MotorAlerta.fmtBRL(v.valorTotal)}</td>
+                            <td><a href="${escaparHtml(v.linkPortal)}" target="_blank" rel="noopener" title="Abrir comprovante no Portal da Transparência"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Comprovante</a></td>
+                        </tr>`).join('')
+                    : '<tr><td colspan="8" class="estado-vazio">Nenhuma viagem encontrada para o período.</td></tr>';
+            }
 
             set('#avisoGastosPresidente', dados.aviso || '');
         } catch (erro) {
             ['#presViagens', '#presTotal', '#presMedia', '#presMaior'].forEach((id) => set(id, '—'));
-            set('#corpoTabelaViagens', `<tr><td colspan="8" class="erro">${escaparHtml(erro.message)}</td></tr>`);
+            if (corpoViagens) corpoViagens.innerHTML = `<tr><td colspan="8" class="erro">${escaparHtml(erro.message)}</td></tr>`;
             notificar(erro.message, 'fa-triangle-exclamation');
         }
     }
