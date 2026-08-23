@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "schema": "node scripts/rodarSchema.js"
+    "schema": "node scripts/rodarSchema.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"

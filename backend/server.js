@@ -19,7 +19,9 @@ const rotaPortal = require('./routes/portal');
 const rotaSenado = require('./routes/senado');
 const rotaAnalise = require('./routes/analise');
 const rotaInformacao = require('./routes/informacao');
+const rotaExport = require('./routes/export');
 const { pool, habilitado } = require('./db');
+const { contadores } = require('./services/proxy');
 
 const app = express();
 const PORTA = Number(process.env.PORT) || 3000;
@@ -48,6 +50,7 @@ app.get('/api/health', (req, res) => {
         modoMock: process.env.USE_MOCK === 'true',
         banco: habilitado ? 'postgres' : 'memoria',
         chavePortal: Boolean(process.env.CHAVE_API_PORTAL),
+        requisicoes: contadores,
     });
 });
 
@@ -57,6 +60,7 @@ app.use('/api/portal', rotaPortal);
 app.use('/api/senado', rotaSenado);
 app.use('/api/analise', rotaAnalise);
 app.use('/api/informacao', rotaInformacao);
+app.use('/api/export', rotaExport);
 
 /* Arquivos estáticos do frontend (index.html, dashboard.html, src/, etc.). */
 app.use(express.static(RAIZ_FRONT));

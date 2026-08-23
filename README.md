@@ -131,18 +131,21 @@ seu-politico/
 │   │   ├── senado.js       # Senadores + despesas CEAPS
 │   │   ├── portal.js       # Proxy Portal da Transparência (órgãos + contratos)
 │   │   ├── informacao.js   # Presidente e candidatos (Wikipedia)
-│   │   └── analise.js      # Endpoints de análise
-│   └── services/
-│       ├── proxy.js        # Fetch com rate limit e retry em 429
-│       ├── cache.js        # Cache PostgreSQL/memória
-│       ├── deputados.js    # Acesso normalizado à Câmara
-│       ├── cotas.js        # Importação da cota da Câmara (arquivos oficiais)
-│       ├── senado.js       # Acesso normalizado ao Senado (CEAPS)
-│       ├── informacao.js   # Presidente e candidatos 2026 (Wikipedia pt)
-│       ├── orgaosPrincipais.js # Órgãos superiores do Executivo (SIAFI)
-│       ├── empresas.js      # Empresas que recebem de 2+ parlamentares
-│       ├── motorAlerta.js  # Motor de suspeita (servidor)
-│       └── mockData.js     # Dados fictícios (USE_MOCK=true)
+│   │   ├── analise.js      # Endpoints de análise
+│   │   └── export.js       # Exportação CSV (empresas e despesas)
+│   ├── services/
+│   │   ├── proxy.js        # Fetch com rate limit e retry em 429 (+ contadores)
+│   │   ├── cache.js        # Cache PostgreSQL/memória
+│   │   ├── deputados.js    # Acesso normalizado à Câmara
+│   │   ├── cotas.js        # Importação da cota da Câmara (arquivos oficiais)
+│   │   ├── senado.js       # Acesso normalizado ao Senado (CEAPS)
+│   │   ├── informacao.js   # Presidente e candidatos 2026 (Wikipedia pt)
+│   │   ├── orgaosPrincipais.js # Órgãos superiores do Executivo (SIAFI)
+│   │   ├── empresas.js      # Empresas que recebem de 2+ parlamentares
+│   │   ├── motorAlerta.js  # Motor de suspeita (servidor — fonte única)
+│   │   └── mockData.js     # Dados fictícios (USE_MOCK=true)
+│   ├── test/
+│   │   └── motorAlerta.test.js  # Testes unitários do motor (node --test)
 ├── scripts/
 │   └── schema.sql          # Tabelas do PostgreSQL
 ├── docker-compose.yml      # PostgreSQL
@@ -267,14 +270,17 @@ Tabelas: `api_cache`, `deputados`, `despesas_parlamentares`, `alertas`.
 
 ## Motor de suspeita
 
-Regras neutras implementadas no **backend** (`backend/services/motorAlerta.js`).
-Para evitar sinais "pífios", apenas padrões com valores **≥ R$ 5.000**
-(`VALOR_MINIMO_SINAL`) geram alertas:
+As regras vivem **somente no backend** (`backend/services/motorAlerta.js`); o
+frontend apenas renderiza os sinais que a API já entrega — fonte única de
+verdade, sem risco de divergência. Para evitar sinais "pífios", apenas padrões
+com valores **≥ R$ 5.000** (`VALOR_MINIMO_SINAL`) geram alertas:
 
 | Sinal | Como detectar | Nível |
 |-------|---------------|-------|
 | Gasto acima da média | Compara o total com a média dos deputados do mesmo estado | 🟡 alerta |
+| Categoria dominante | >60% dos recursos em uma categoria (valor ≥ piso) | 💡 info |
 | Fornecedor recorrente | Concentração de >70% dos recursos em um fornecedor (valor ≥ piso) | 💡 info |
+| Fornecedor relevante | Concentração de 40–70% em um fornecedor (valor ≥ piso) | 📊 comparação |
 | Serviço caro | Despesa >3x a média do mesmo tipo de despesa (valor ≥ piso) | 🟡 alerta |
 | Padrão incomum | Salto >200% em uma categoria entre meses (valor ≥ piso) | 📊 comparação |
 | Variação atípica | Aumento >100% no total entre dois meses (valor ≥ piso) | 🟡 alerta |
@@ -284,6 +290,36 @@ A linguagem é sempre neutra e participativa ("O que você acha disso?",
 "Vale a pena investigar?"). O perfil também mostra o bloco
 **"Maiores fornecedores no ano"** com os valores e a participação de cada um.
 
+## Testes
+
+O motor de suspeita tem **testes unitários** (`backend/test/motorAlerta.test.js`,
+rodados com `node --test` — sem dependências):
+
+```bash
+cd backend
+npm test
+```
+
+Cobrem `calcularResumo`, todas as regras de `gerarSinais` (piso de R$ 5.000
+respeitado, concentração de fornecedores, serviço caro, variação atípica,
+padrão incomum, maior despesa, média por UF) e `gerarSinaisComparacao`.
+
+## Exportação de dados (servidor)
+
+Além dos botões de CSV/JSON no navegador (dados filtrados exibidos), há
+endpoints de exportação para **jornalistas e pesquisadores**:
+
+- `GET /api/export/empresas.csv?ano=` — empresas que recebem de 2+ parlamentares.
+- `GET /api/export/despesas.csv?ano=&uf=` — despesas da cota da Câmara do ano,
+  filtradas por UF (colunas incluem o comprovante oficial).
+
+## Compromisso de transparência
+
+Regra do projeto: **todo dado exibido tem link para a fonte oficial** —
+comprovante na Câmara (nota fiscal/PDF), perfil no Senado, contrato no Portal da
+Transparência, votações na Câmara/Senado. É o que separa uma ferramenta de
+transparência de um "site de fofoca política".
+
 ## Termos de uso das APIs
 
 - **Portal da Transparência:** limite de **400 requisições/minuto**
@@ -292,6 +328,8 @@ A linguagem é sempre neutra e participativa ("O que você acha disso?",
 - **Câmara dos Deputados:** uso consciente (`CAMARA_RPM`, padrão 120) com o
   mesmo cuidado.
 - Header de autenticação (`chave-api-dados`) fica **somente no servidor**.
+- `GET /api/health` expõe **contadores de uso** por API (requisições e **429s**
+  desde o boot) para monitorar o rate limit em produção.
 - Dados sujeitos aos termos de uso do
   [Decreto nº 8.777/2016](http://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/D8777.htm).
 

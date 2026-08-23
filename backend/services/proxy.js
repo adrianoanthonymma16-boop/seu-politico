@@ -41,15 +41,25 @@ const limitadorPortal = criarLimitador(Number(process.env.PORTAL_RPM) || 350);
 const limitadorCamara = criarLimitador(Number(process.env.CAMARA_RPM) || 120);
 const limitadorWikipedia = criarLimitador(Number(process.env.WIKI_RPM) || 60);
 
+/* Contadores de uso por API (para monitorar rate limit em produção). */
+const contadores = {
+    portal: { requisicoes: 0, retries429: 0 },
+    camara: { requisicoes: 0, retries429: 0 },
+    senado: { requisicoes: 0, retries429: 0 },
+    wikipedia: { requisicoes: 0, retries429: 0 },
+};
+
 /* ---- Requisição base com retry em 429 ---- */
-async function requisitar(url, headers, limitador, tentativas = 2) {
+async function requisitar(url, headers, limitador, tentativas = 2, rotulo = 'camara') {
     for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
         try {
+            contadores[rotulo].requisicoes += 1;
             const resposta = await limitador.agendar(() =>
                 fetch(url, { headers, signal: AbortSignal.timeout(30000) })
             );
 
             if (resposta.status === 429 && tentativa < tentativas) {
+                contadores[rotulo].retries429 += 1;
                 const aguardar = Number(resposta.headers.get('retry-after')) || 5;
                 console.warn(`[proxy] 429 recebido, aguardando ${aguardar}s antes de tentar novamente.`);
                 await AGUARDAR(aguardar * 1000);
@@ -87,7 +97,7 @@ function requisitarPortal(caminho, params = {}) {
         if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
     });
     console.log(`[proxy] Portal GET ${url.pathname}${url.search}`);
-    return requisitar(url.toString(), { 'chave-api-dados': chave }, limitadorPortal);
+    return requisitar(url.toString(), { 'chave-api-dados': chave }, limitadorPortal, 2, 'portal');
 }
 
 /* ---- Câmara dos Deputados (sem chave) ---- */
@@ -97,7 +107,7 @@ function requisitarCamara(caminho, params = {}) {
         if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
     });
     console.log(`[proxy] Câmara GET ${url.pathname}${url.search}`);
-    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorCamara);
+    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorCamara, 2, 'camara');
 }
 
 /* ---- Senado (API adm-dadosabertos, sem chave) ---- */
@@ -108,7 +118,7 @@ function requisitarSenadoAdm(caminho, params = {}) {
     });
     if (!url.searchParams.has('formato')) url.searchParams.set('formato', 'json');
     console.log(`[proxy] Senado(adm) GET ${url.pathname}${url.search}`);
-    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorCamara);
+    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorCamara, 2, 'senado');
 }
 
 /* ---- Senado (API legis dados abertos, sem chave) ---- */
@@ -118,7 +128,7 @@ function requisitarSenadoLegis(caminho, params = {}) {
         if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
     });
     console.log(`[proxy] Senado(legis) GET ${url.pathname}${url.search}`);
-    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorCamara);
+    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorCamara, 2, 'senado');
 }
 
 /* ---- Wikipedia (pt.wikipedia.org, MediaWiki API) ---- */
@@ -130,7 +140,7 @@ function requisitarWikipedia(params = {}) {
     url.searchParams.set('format', 'json');
     url.searchParams.set('origin', '*');
     console.log(`[proxy] Wikipedia GET ${url.search}`);
-    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorWikipedia);
+    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorWikipedia, 2, 'wikipedia');
 }
 
-module.exports = { requisitarPortal, requisitarCamara, requisitarSenadoAdm, requisitarSenadoLegis, requisitarWikipedia, PORTAL_BASE, CAMARA_BASE };
+module.exports = { requisitarPortal, requisitarCamara, requisitarSenadoAdm, requisitarSenadoLegis, requisitarWikipedia, PORTAL_BASE, CAMARA_BASE, contadores };

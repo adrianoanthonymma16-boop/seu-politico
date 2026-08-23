@@ -12,7 +12,7 @@ const express = require('express');
 const { buscarDeputados, obterDeputado, obterTodasDespesas, listarPartidos } = require('../services/deputados');
 const senado = require('../services/senado');
 const { listarEmpresasRecorrentes } = require('../services/empresas');
-const { calcularResumo, gerarSinais } = require('../services/motorAlerta');
+const { calcularResumo, gerarSinais, gerarSinaisComparacao } = require('../services/motorAlerta');
 const cache = require('../services/cache');
 
 const rota = express.Router();
@@ -284,8 +284,9 @@ rota.get('/comparar', async (req, res) => {
         }
 
         const categorias = Object.entries(categoriasMap).map(([tipo, valores]) => ({ tipo, valores }));
+        const sinais = gerarSinaisComparacao(parlamentares);
 
-        res.json({ ano, deputados: parlamentares, categorias });
+        res.json({ ano, deputados: parlamentares, categorias, sinais });
     } catch (erro) {
         console.error('[analise/comparar]', erro.message);
         res.status(erro.status || 502).json({ erro: erro.message });

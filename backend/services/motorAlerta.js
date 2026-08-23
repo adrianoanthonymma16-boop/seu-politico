@@ -80,7 +80,7 @@ function gerarSinais(despesas, resumo, contexto = {}) {
         });
     }
 
-    if (categoriaPrincipal && total > 0) {
+    if (categoriaPrincipal && categoriaPrincipal.valor >= VALOR_MINIMO_SINAL && total > 0) {
         const participacao = (categoriaPrincipal.valor / total) * 100;
         if (participacao > 60) {
             sinais.push({
@@ -202,4 +202,28 @@ function gerarSinais(despesas, resumo, contexto = {}) {
     return sinais;
 }
 
-module.exports = { calcularResumo, gerarSinais };
+/* Sinais comparativos entre parlamentares (2+). Fonte única — o frontend só renderiza. */
+function gerarSinaisComparacao(parlamentares) {
+    const sinais = [];
+    const validos = (Array.isArray(parlamentares) ? parlamentares : [])
+        .filter((d) => d && d.total !== undefined);
+    if (validos.length < 2) return sinais;
+
+    const [a, b] = validos;
+    if (a.total > 0 && b.total > 0) {
+        const maior = a.total >= b.total ? a : b;
+        const menor = maior === a ? b : a;
+        const razao = Math.round((maior.total / menor.total) * 10) / 10;
+        if (razao > 1.5) {
+            sinais.push({
+                nivel: 'comparacao',
+                icone: '📊',
+                titulo: 'Diferença de volume de gastos',
+                texto: `${maior.nome} gastou ${fmtNumero(razao, 1)}x mais que ${menor.nome} no período (${fmtBRL(maior.total)} contra ${fmtBRL(menor.total)}). Comparação neutra.`,
+            });
+        }
+    }
+    return sinais;
+}
+
+module.exports = { calcularResumo, gerarSinais, gerarSinaisComparacao };

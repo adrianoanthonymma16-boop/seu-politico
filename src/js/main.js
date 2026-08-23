@@ -2321,8 +2321,7 @@
             comparacaoAtual = dados;
             const lista = dados.deputados || [];
 
-            // Sinais comparativos.
-            const sinais = MotorAlerta.comparar(lista.map((d) => ({ nome: d.nome, total: d.total })));
+            // Sinais comparativos vêm do backend (fonte única do motor de suspeita).
 
             const linkPerfil = (d) => {
                 const idPuro = String(d.id).slice(4);
@@ -2354,7 +2353,7 @@
                     <canvas id="graficoComparar" aria-label="Gráfico de barras comparando gastos por categoria" role="img"></canvas>
                 </div>`;
 
-            renderizarSinais($('#compararSinais'), sinais);
+            renderizarSinais($('#compararSinais'), dados.sinais);
 
             // Gráfico agrupado por categoria.
             const categorias = dados.categorias || [];
@@ -2822,7 +2821,13 @@
 
     function iniciarEmpresas() {
         const seletor = $('#seletorAnoEmpresas');
-        if (seletor) seletor.addEventListener('change', carregarEmpresas);
+        if (seletor) {
+            seletor.addEventListener('change', () => {
+                const link = $('#botaoBaixarCSV');
+                if (link) link.href = `/api/export/empresas.csv?ano=${seletor.value}`;
+                carregarEmpresas();
+            });
+        }
         const busca = $('#buscaEmpresa');
         if (busca) busca.addEventListener('input', renderizarEmpresas);
         const filtroMin = $('#filtroMinParlamentares');
