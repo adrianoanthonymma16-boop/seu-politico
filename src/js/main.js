@@ -164,11 +164,25 @@
             tipos.map((t) => `<option value="${escaparHtml(t)}">${escaparHtml(t)}</option>`).join('');
     }
 
-    function filtrarDespesas(despesas, { tipo, mes, busca, campoBusca = 'fornecedor' }) {
+    // Normaliza "dd/mm/aaaa" ou "aaaa-mm-dd" para ISO (aaaa-mm-dd) para comparar intervalos.
+    function normalizarDataISO(valor) {
+        const s = String(valor || '');
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+        const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+    }
+
+    function filtrarDespesas(despesas, { tipo, mes, busca, campoBusca = 'fornecedor', dataInicio = '', dataFim = '', valorMin = null, valorMax = null, campoData = 'data' }) {
         return despesas.filter((d) => {
             if (tipo && d.tipo !== tipo) return false;
             if (mes && String(d.mes) !== String(mes)) return false;
             if (busca && !String(d[campoBusca] || '').toLowerCase().includes(busca)) return false;
+            const data = normalizarDataISO(d[campoData]);
+            if (dataInicio && data < dataInicio) return false;
+            if (dataFim && data > dataFim) return false;
+            const valor = Number(d.valor) || 0;
+            if (valorMin !== null && valor < valorMin) return false;
+            if (valorMax !== null && valor > valorMax) return false;
             return true;
         });
     }
@@ -181,7 +195,7 @@
 
         const sincronizar = () => { renderer(); gravarFiltrosNaUrl(prefixo); };
 
-        ['filtroTipo', 'filtroMes'].forEach((base) => {
+        ['filtroTipo', 'filtroMes', 'filtroDataInicio', 'filtroDataFim', 'filtroValorMin', 'filtroValorMax'].forEach((base) => {
             const el = $(`#${base}${prefixo}`);
             if (el) el.addEventListener('change', sincronizar);
         });
@@ -190,7 +204,7 @@
         const limpar = $(`#botaoLimparFiltros${prefixo}`);
         if (limpar) {
             limpar.addEventListener('click', () => {
-                ['filtroTipo', 'filtroMes'].forEach((base) => {
+                ['filtroTipo', 'filtroMes', 'filtroDataInicio', 'filtroDataFim', 'filtroValorMin', 'filtroValorMax'].forEach((base) => {
                     const el = $(`#${base}${prefixo}`);
                     if (el) el.value = '';
                 });
@@ -292,12 +306,12 @@
     // Configuração dos filtros para sincronizar com a URL (e reutilizada na exportação).
     function configFiltrosUrl(prefixo) {
         if (prefixo === 'Presidente') {
-            return { buscaId: '#filtroBeneficiarioPresidente', campoBusca: 'beneficiario', paramBusca: 'beneficiario' };
+            return { buscaId: '#filtroBeneficiarioPresidente', campoBusca: 'beneficiario', paramBusca: 'beneficiario', campoData: 'dataInicio' };
         }
         if (prefixo === 'ContratoPresidente') {
-            return { buscaId: '#filtroFornecedorContratoPresidente', campoBusca: 'fornecedor', paramBusca: 'fornecedor' };
+            return { buscaId: '#filtroFornecedorContratoPresidente', campoBusca: 'fornecedor', paramBusca: 'fornecedor', campoData: 'dataAssinatura' };
         }
-        return { buscaId: `#filtroFornecedor${prefixo}`, campoBusca: 'fornecedor', paramBusca: 'fornecedor' };
+        return { buscaId: `#filtroFornecedor${prefixo}`, campoBusca: 'fornecedor', paramBusca: 'fornecedor', campoData: 'data' };
     }
 
     function obterFiltrosDeControles(prefixo) {
@@ -305,30 +319,49 @@
         const tipo = $(`#filtroTipo${prefixo}`)?.value || '';
         const mes = $(`#filtroMes${prefixo}`)?.value || '';
         const busca = ($(cfg.buscaId)?.value || '').toLowerCase().trim();
-        return { tipo, mes, busca, campoBusca: cfg.campoBusca };
+        const dataInicio = $(`#filtroDataInicio${prefixo}`)?.value || '';
+        const dataFim = $(`#filtroDataFim${prefixo}`)?.value || '';
+        const valorMinRaw = $(`#filtroValorMin${prefixo}`)?.value;
+        const valorMaxRaw = $(`#filtroValorMax${prefixo}`)?.value;
+        const valorMin = valorMinRaw === '' || valorMinRaw === undefined ? null : Number(valorMinRaw);
+        const valorMax = valorMaxRaw === '' || valorMaxRaw === undefined ? null : Number(valorMaxRaw);
+        return {
+            tipo, mes, busca, campoBusca: cfg.campoBusca,
+            dataInicio, dataFim, valorMin, valorMax, campoData: cfg.campoData,
+        };
     }
 
     function gravarFiltrosNaUrl(prefixo) {
         const cfg = configFiltrosUrl(prefixo);
-        const { tipo, mes, busca } = obterFiltrosDeControles(prefixo);
+        const f = obterFiltrosDeControles(prefixo);
         const url = new URL(window.location);
-        if (tipo) url.searchParams.set('tipo', tipo); else url.searchParams.delete('tipo');
-        if (mes) url.searchParams.set('mes', mes); else url.searchParams.delete('mes');
-        if (busca) url.searchParams.set(cfg.paramBusca, busca); else url.searchParams.delete(cfg.paramBusca);
+        const set = (chave, valor) => {
+            if (valor !== '' && valor !== null) url.searchParams.set(chave, valor);
+            else url.searchParams.delete(chave);
+        };
+        set('tipo', f.tipo);
+        set('mes', f.mes);
+        set(cfg.paramBusca, f.busca);
+        set('dataInicio', f.dataInicio);
+        set('dataFim', f.dataFim);
+        set('valorMin', f.valorMin);
+        set('valorMax', f.valorMax);
         history.replaceState(null, '', url);
     }
 
     function aplicarFiltrosDaUrl(prefixo) {
         const cfg = configFiltrosUrl(prefixo);
-        const tipo = lerParametro('tipo');
-        const mes = lerParametro('mes');
-        const busca = lerParametro(cfg.paramBusca);
-        const selTipo = $(`#filtroTipo${prefixo}`);
-        const selMes = $(`#filtroMes${prefixo}`);
-        const inputBusca = $(cfg.buscaId);
-        if (selTipo && tipo) selTipo.value = tipo;
-        if (selMes && mes) selMes.value = mes;
-        if (inputBusca && busca) inputBusca.value = busca;
+        const define = (id, valor) => {
+            const el = $(id);
+            if (el && valor) el.value = valor;
+        };
+        define(`#filtroTipo${prefixo}`, lerParametro('tipo'));
+        define(`#filtroMes${prefixo}`, lerParametro('mes'));
+        define(cfg.buscaId, lerParametro(cfg.paramBusca));
+        define(`#filtroDataInicio${prefixo}`, lerParametro('dataInicio'));
+        define(`#filtroDataFim${prefixo}`, lerParametro('dataFim'));
+        define(`#filtroValorMin${prefixo}`, lerParametro('valorMin'));
+        define(`#filtroValorMax${prefixo}`, lerParametro('valorMax'));
     }
 
     const COLUNAS_DESPESA = [
@@ -386,10 +419,14 @@
     function exportarJSONDoContexto(chave) {
         const ctx = CONTEXTOS_EXPORTACAO[chave];
         if (!ctx) return;
-        const { tipo, mes, busca } = obterFiltrosDeControles(ctx.prefixo);
+        const f = obterFiltrosDeControles(ctx.prefixo);
         exportarJSON(`${ctx.arquivo}.json`, {
             geradoEm: new Date().toISOString(),
-            filtros: { tipo, mes, busca },
+            filtros: {
+                tipo: f.tipo, mes: f.mes, busca: f.busca,
+                dataInicio: f.dataInicio, dataFim: f.dataFim,
+                valorMin: f.valorMin, valorMax: f.valorMax,
+            },
             registros: registrosFiltradosDoContexto(chave),
         });
     }
@@ -1132,7 +1169,51 @@
                 carregarPerfil();
             });
         }
+
+        // Busca de votações por projeto de lei.
+        const btnBuscar = $('#botaoBuscarVotacaoDeputado');
+        if (btnBuscar) btnBuscar.addEventListener('click', buscarVotacaoDeputadoAtual);
+        const campoBusca = $('#buscaVotacaoDeputado');
+        if (campoBusca) campoBusca.addEventListener('keydown', (e) => { if (e.key === 'Enter') buscarVotacaoDeputadoAtual(); });
+        const btnLimpar = $('#botaoLimparBuscaVotacaoDeputado');
+        if (btnLimpar) btnLimpar.addEventListener('click', voltarListaVotacoesDeputado);
+
         carregarPerfil();
+    }
+
+    async function buscarVotacaoDeputadoAtual() {
+        const id = lerParametro('id');
+        const campo = $('#buscaVotacaoDeputado');
+        const container = $('#listaVotacoes');
+        const botaoLimpar = $('#botaoLimparBuscaVotacaoDeputado');
+        if (!id || !campo || !container) return;
+        const q = (campo.value || '').trim();
+        if (!q) { notificar('Digite um projeto (ex.: PL 1234/2025).', 'fa-hand-pointer'); return; }
+        container.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Buscando votação...</p></div>';
+        try {
+            const dados = await SeuPoliticoAPI.buscarVotacoesDeputado(id, q);
+            votacoesAtuais = dados.dados || [];
+            votacaoPagina = 1;
+            if (votacoesAtuais.length === 0) {
+                renderizarEstadosVazio(container, 'estado-vazio', 'fa-inbox', 'Nenhuma votação encontrada para este projeto (ou ele não foi votado).');
+            } else {
+                const ano = Number($('#seletorAnoDeputado')?.value || new Date().getFullYear());
+                renderizarVotacoes(container, id, ano, dados.links || {});
+            }
+            if (botaoLimpar) botaoLimpar.style.display = '';
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation', erro.message);
+        }
+    }
+
+    async function voltarListaVotacoesDeputado() {
+        const id = lerParametro('id');
+        const campo = $('#buscaVotacaoDeputado');
+        const botaoLimpar = $('#botaoLimparBuscaVotacaoDeputado');
+        if (campo) campo.value = '';
+        if (botaoLimpar) botaoLimpar.style.display = 'none';
+        const ano = Number($('#seletorAnoDeputado')?.value || new Date().getFullYear());
+        if (id) carregarVotacoes(id, ano, 1);
     }
 
     function renderizarTabelaDeputado() {
@@ -1140,10 +1221,7 @@
         const contagem = $('#contagemDespesasDeputado');
         if (!corpo) return;
 
-        const tipo = $('#filtroTipoDeputado')?.value || '';
-        const mes = $('#filtroMesDeputado')?.value || '';
-        const busca = ($('#filtroFornecedorDeputado')?.value || '').toLowerCase().trim();
-        const filtradas = filtrarDespesas(perfilDespesas, { tipo, mes, busca });
+        const filtradas = filtrarDespesas(perfilDespesas, obterFiltrosDeControles('Deputado'));
 
         if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${perfilDespesas.length} despesas.`;
         corpo.innerHTML = filtradas.length
@@ -1277,7 +1355,13 @@
     }
 
     function renderizarVotacoesSenador(container, ano) {
-        const rows = votacoesSenadorAtuais;
+        const busca = ($('#buscaVotacaoSenador')?.value || '').toLowerCase().trim();
+        const rows = busca
+            ? votacoesSenadorAtuais.filter((v) => {
+                const alvo = `${v.titulo || ''} ${v.ementa || ''} ${v.voto || ''} ${v.orgao || ''}`.toLowerCase();
+                return alvo.includes(busca);
+            })
+            : votacoesSenadorAtuais;
         container.innerHTML = `
             <div class="tabela-wrapper">
                 <table class="tabela">
@@ -1699,6 +1783,15 @@
                 carregarSenador();
             });
         }
+
+        // Busca de votações do senador (filtro client-side).
+        const buscaVot = $('#buscaVotacaoSenador');
+        if (buscaVot) {
+            buscaVot.addEventListener('input', () => {
+                renderizarVotacoesSenador($('#listaVotacoesSenador'), Number(sel?.value || new Date().getFullYear()));
+            });
+        }
+
         carregarSenador();
     }
 
@@ -1707,10 +1800,7 @@
         const contagem = $('#contagemDespesasSenador');
         if (!corpo) return;
 
-        const tipo = $('#filtroTipoSenador')?.value || '';
-        const mes = $('#filtroMesSenador')?.value || '';
-        const busca = ($('#filtroFornecedorSenador')?.value || '').toLowerCase().trim();
-        const filtradas = filtrarDespesas(senadorDespesas, { tipo, mes, busca });
+        const filtradas = filtrarDespesas(senadorDespesas, obterFiltrosDeControles('Senador'));
 
         const linkPerfil = senadorAtualId
             ? `https://www25.senado.leg.br/web/senadores/senador/-/perfil/${encodeURIComponent(senadorAtualId)}`
@@ -2025,10 +2115,7 @@
         const contagem = $('#contagemViagensPresidente');
         if (!corpo) return;
 
-        const tipo = $('#filtroTipoPresidente')?.value || '';
-        const mes = $('#filtroMesPresidente')?.value || '';
-        const busca = ($('#filtroBeneficiarioPresidente')?.value || '').toLowerCase().trim();
-        const filtradas = filtrarDespesas(presidenteViagens, { tipo, mes, busca, campoBusca: 'beneficiario' });
+        const filtradas = filtrarDespesas(presidenteViagens, obterFiltrosDeControles('Presidente'));
 
         if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${presidenteViagens.length} viagens.`;
         corpo.innerHTML = filtradas.length
@@ -2101,10 +2188,7 @@
         const contagem = $('#contagemContratosPresidente');
         if (!corpo) return;
 
-        const tipo = $('#filtroTipoContratoPresidente')?.value || '';
-        const mes = $('#filtroMesContratoPresidente')?.value || '';
-        const busca = ($('#filtroFornecedorContratoPresidente')?.value || '').toLowerCase().trim();
-        const filtradas = filtrarDespesas(presidenteContratos, { tipo, mes, busca, campoBusca: 'fornecedor' });
+        const filtradas = filtrarDespesas(presidenteContratos, obterFiltrosDeControles('ContratoPresidente'));
 
         if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${presidenteContratos.length} contratos.`;
         corpo.innerHTML = filtradas.length

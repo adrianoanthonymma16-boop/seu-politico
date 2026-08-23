@@ -101,6 +101,51 @@ async function obterVotacoesDoDeputado(deputadoId, ano) {
     return { dados: registros, links: { pagina: 1, ultima: 1 } };
 }
 
+/**
+ * Busca as votações de uma proposição específica (ex.: "PL 1234/2025") e o
+ * voto do deputado em cada uma. Usado no campo de busca do perfil.
+ */
+async function buscarVotacoesDeputado(deputadoId, q) {
+    const proxy = require('../services/proxy');
+    const texto = String(q || '').trim();
+    const m = texto.match(/^([A-Z]{1,6})\s*(\d+)\s*\/\s*(\d{4})$/i);
+    if (!m) {
+        return { dados: [], links: { pagina: 1, ultima: 1 }, erro: 'Formato: sigla número/ano — ex.: PL 1234/2025.' };
+    }
+
+    const [, siglaTipo, numero, ano] = m;
+    const prop = await proxy.requisitarCamara('proposicoes', {
+        siglaTipo, numero, ano, itens: 5,
+    });
+    const primeira = (prop.dados || [])[0];
+    if (!primeira) return { dados: [], links: { pagina: 1, ultima: 1 } };
+
+    const votacoes = await proxy.requisitarCamara(`proposicoes/${primeira.id}/votacoes`);
+    const registros = [];
+    for (const v of (votacoes.dados || [])) {
+        let voto = 'Não votou';
+        try {
+            const votos = await proxy.requisitarCamara(`votacoes/${v.id}/votos`);
+            const encontrado = (votos.dados || []).find(
+                (vv) => vv.deputado_ && String(vv.deputado_.id) === String(deputadoId)
+            );
+            if (encontrado) voto = encontrado.tipoVoto || '—';
+        } catch (e) {
+            // Votações simbólicas podem não expor votos individuais.
+        }
+        registros.push({
+            idVotacao: v.id,
+            data: v.data || '',
+            orgao: v.siglaOrgao || 'PLEN',
+            titulo: `${String(siglaTipo).toUpperCase()} ${numero}/${ano}`,
+            ementa: v.descricao || '',
+            voto,
+        });
+    }
+
+    return { dados: registros, links: { pagina: 1, ultima: 1 } };
+}
+
 /** GET /api/camara/deputados?nome=&siglaPartido=&siglaUf=&pagina= */
 rota.get('/deputados', async (req, res) => {
     try {
@@ -328,6 +373,33 @@ rota.get('/deputado/:id/despesas', async (req, res) => {
         res.json(resposta);
     } catch (erro) {
         console.error('[camara/despesas]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
+    }
+});
+
+/** GET /api/camara/deputado/:id/votacoes/busca?q=PL 1234/2025 — busca votação de um projeto */
+rota.get('/deputado/:id/votacoes/busca', async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) {
+            return res.status(400).json({ erro: 'Informe o parâmetro q (ex.: ?q=PL 1234/2025).' });
+        }
+
+        const MOCK = process.env.USE_MOCK === 'true';
+        if (MOCK) {
+            return res.json(mock.buscarVotacoesDeputado(req.params.id, q));
+        }
+
+        const cache = require('../services/cache');
+        const chave = `camara:votacoes:busca:${req.params.id}:${String(q).toUpperCase().trim()}`;
+        const cached = await cache.obter(chave);
+        if (cached) return res.json(cached);
+
+        const resultado = await buscarVotacoesDeputado(req.params.id, q);
+        await cache.gravar(chave, resultado, 6 * 3600);
+        res.json(resultado);
+    } catch (erro) {
+        console.error('[camara/votacoes/busca]', erro.message);
         res.status(erro.status || 502).json({ erro: erro.message });
     }
 });

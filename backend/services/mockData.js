@@ -320,6 +320,27 @@ module.exports = {
         return { dados: todas.slice(inicio, inicio + itens), links: { pagina, ultima: Math.ceil(todas.length / itens) } };
     },
 
+    buscarVotacoesDeputado(id, q) {
+        const m = String(q || '').match(/^([A-Z]{1,6})\s*(\d+)\s*\/\s*(\d{4})$/i);
+        if (!m) return { dados: [], links: { pagina: 1, ultima: 1 }, erro: 'Formato: sigla número/ano — ex.: PL 1234/2025.' };
+        const siglaAlvo = String(m[1]).toUpperCase();
+        const prop = PROPOSICOES_MOCK.find((p) => String(p.sigla).toUpperCase().startsWith(siglaAlvo));
+        if (!prop) return { dados: [], links: { pagina: 1, ultima: 1 } };
+        const rng = sementeDe(`votBusca${id}`);
+        const votos = ['Sim', 'Não', 'Abstenção', 'Não votou'];
+        return {
+            dados: [{
+                idVotacao: 6000 + prop.id,
+                data: '2025-03-10',
+                orgao: 'PLEN',
+                titulo: prop.sigla,
+                ementa: prop.tema,
+                voto: votos[Math.floor(rng() * votos.length)],
+            }],
+            links: { pagina: 1, ultima: 1 },
+        };
+    },
+
     buscarProposicao(siglaTipo, numero, ano) {
         const tipoAlvo = String(siglaTipo).toUpperCase();
         const numAlvo = String(numero);

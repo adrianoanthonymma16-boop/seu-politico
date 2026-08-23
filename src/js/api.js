@@ -75,6 +75,11 @@ const SeuPoliticoAPI = (() => {
             return requisicao(`/camara/deputado/${id}/votacoes`, { ano, pagina });
         },
 
+        /** Busca como o deputado votou em uma proposição específica (ex.: "PL 1234/2025"). */
+        buscarVotacoesDeputado(id, q) {
+            return requisicao(`/camara/deputado/${id}/votacoes/busca`, { q });
+        },
+
         /** Detalhe de uma votação + votos dos parlamentares. */
         obterDetalheVotacao(idVotacao, { pagina = 1 } = {}) {
             return requisicao(`/camara/votacao/${idVotacao}`, { pagina });
