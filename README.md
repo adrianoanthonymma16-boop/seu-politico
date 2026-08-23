@@ -74,6 +74,7 @@ O **Seu Político** reúne dados de fontes oficiais e apresenta:
 - **Presidente da República** — perfil informativo com resumo, foto e links oficiais, **mais análise de gastos completa**: todas as **viagens a serviço** e **contratos da Presidência**, com filtros, indicadores, sinais, **maiores fornecedores** e comprovante no Portal.
 - **Candidatos à Presidência** — candidatos registrados para 2026, ativo no período eleitoral (fonte pública, situação oficial no TSE).
 - **Votações** — lista de **votações recentes da Câmara e do Senado** (sem precisar pesquisar), com "Carregar mais"; busque uma proposição (ex.: `PL 1234/2025`) e veja o placar. Ao abrir uma votação, dá para **pesquisar por nome e filtrar por UF e partido** nos votos.
+- **Empresas recorrentes** — fornecedores que **recebem de 2+ parlamentares** (Câmara e Senado) no ano, com total recebido, nº de parlamentares/despesas e **comprovantes oficiais** (nota fiscal na Câmara / perfil no Senado). Filtros por fornecedor e nº mínimo de parlamentares.
 - **Comparar** — gastos lado a lado com gráfico agrupado por categoria, **de 2 a 4 políticos**, **incluindo deputados × senadores no mesmo gráfico**.
 - **Aprenda a fiscalizar** — guia educativo com passos para conferir os dados por conta própria.
 - **Seguir políticos** — salve perfis no navegador e acompanhe-os na página inicial.
@@ -107,6 +108,7 @@ seu-politico/
 ├── candidatos.html         # Candidatos à Presidência (período eleitoral)
 ├── comparar.html           # Comparação entre parlamentares
 ├── votacao.html            # Votação por proposição (PL/PEC) com placar
+├── empresas.html           # Empresas que recebem de 2+ parlamentares
 ├── aprender.html           # Guia "Aprenda a fiscalizar"
 ├── src/
 │   ├── css/
@@ -138,6 +140,7 @@ seu-politico/
 │       ├── senado.js       # Acesso normalizado ao Senado (CEAPS)
 │       ├── informacao.js   # Presidente e candidatos 2026 (Wikipedia pt)
 │       ├── orgaosPrincipais.js # Órgãos superiores do Executivo (SIAFI)
+│       ├── empresas.js      # Empresas que recebem de 2+ parlamentares
 │       ├── motorAlerta.js  # Motor de suspeita (servidor)
 │       └── mockData.js     # Dados fictícios (USE_MOCK=true)
 ├── scripts/

@@ -49,6 +49,40 @@ function normalizarDespesaCota(r) {
 }
 
 /**
+ * Baixa e retorna os registros crus do arquivo oficial de cotas do ano.
+ * Reutilizado pela sincronização (PostgreSQL) e por outras análises.
+ * @param {number} ano
+ * @returns {Promise<Array>} registros crus do arquivo
+ */
+async function obterRegistrosCota(ano) {
+    const chaveCache = `cotas:registros:${ano}`;
+    const cached = await cache.obter(chaveCache);
+    if (cached) return cached;
+
+    const url = `${BASE_COTAS}/Ano-${ano}.json.zip`;
+    const resposta = await fetch(url, { signal: AbortSignal.timeout(240000) });
+    if (!resposta.ok) {
+        throw new Error(`Falha ao baixar cotas de ${ano}: HTTP ${resposta.status}`);
+    }
+
+    const zipPath = path.join(os.tmpdir(), `seupolitico-cotas-${ano}.zip`);
+    fs.writeFileSync(zipPath, Buffer.from(await resposta.arrayBuffer()));
+    const zip = new AdmZip(zipPath);
+    const entrada = zip.getEntries().find((e) => e.entryName.toLowerCase().endsWith('.json'));
+    if (!entrada) {
+        fs.rmSync(zipPath, { force: true });
+        throw new Error(`Arquivo de cotas de ${ano} sem JSON interno.`);
+    }
+
+    const dados = JSON.parse(entrada.getData().toString('utf8'));
+    fs.rmSync(zipPath, { force: true });
+    const registros = Array.isArray(dados) ? dados : dados.dados || [];
+
+    await cache.gravar(chaveCache, registros, 12 * 3600);
+    return registros;
+}
+
+/**
  * Baixa o arquivo do ano, importa em PostgreSQL e monta o índice de nomes.
  * @returns {Promise<Object>} { ano, registros, deputados }
  */
@@ -64,25 +98,7 @@ async function sincronizarAno(ano) {
     if (flag) return flag;
 
     console.log(`[cotas] baixando arquivo oficial de ${ano}...`);
-    const url = `${BASE_COTAS}/Ano-${ano}.json.zip`;
-    const resposta = await fetch(url, { signal: AbortSignal.timeout(240000) });
-    if (!resposta.ok) {
-        throw new Error(`Falha ao baixar cotas de ${ano}: HTTP ${resposta.status}`);
-    }
-
-    const zipPath = path.join(os.tmpdir(), `seupolitico-cotas-${ano}.zip`);
-    fs.writeFileSync(zipPath, Buffer.from(await resposta.arrayBuffer()));
-
-    console.log(`[cotas] arquivo baixado (${(fs.statSync(zipPath).size / 1048576).toFixed(1)} MB). Extraindo...`);
-    const zip = new AdmZip(zipPath);
-    const entrada = zip.getEntries().find((e) => e.entryName.toLowerCase().endsWith('.json'));
-    if (!entrada) {
-        fs.rmSync(zipPath, { force: true });
-        throw new Error(`Arquivo de cotas de ${ano} sem JSON interno.`);
-    }
-
-    const dados = JSON.parse(entrada.getData().toString('utf8'));
-    const registros = Array.isArray(dados) ? dados : dados.dados || [];
+    const registros = await obterRegistrosCota(ano);
 
     // Agrupa por numeroDeputadoID e constrói índice de nomes.
     const porDeputado = {};
@@ -116,7 +132,6 @@ async function sincronizarAno(ano) {
         throw erro;
     } finally {
         client.release();
-        fs.rmSync(zipPath, { force: true });
     }
 
     const resultado = { ano, registros: registros.length, deputados: Object.keys(porDeputado).length };
@@ -152,4 +167,4 @@ async function obterDespesasDeCota(nomeParlamentar, ano) {
     return rows.length ? rows[0].dados : [];
 }
 
-module.exports = { sincronizarAno, obterDespesasDeCota, normalizarNome };
+module.exports = { sincronizarAno, obterDespesasDeCota, obterRegistrosCota, normalizarNome };

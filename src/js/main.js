@@ -2715,6 +2715,124 @@
     }
 
     /* ======================================================================
+       EMPRESAS RECORRENTES (empresas.html)
+       ====================================================================== */
+    let empresasCarregadas = [];
+
+    async function carregarEmpresas() {
+        const container = $('#listaEmpresas');
+        if (!container) return;
+        const ano = Number($('#seletorAnoEmpresas')?.value || new Date().getFullYear());
+        container.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando empresas...</p></div>';
+        try {
+            const dados = await SeuPoliticoAPI.listarEmpresasRecorrentes(ano);
+            empresasCarregadas = dados.empresas || [];
+            renderizarEmpresas();
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation', erro.message);
+        }
+    }
+
+    function empresasFiltradas() {
+        const busca = ($('#buscaEmpresa')?.value || '').toLowerCase().trim();
+        const min = Number($('#filtroMinParlamentares')?.value || 2);
+        return empresasCarregadas.filter((e) => {
+            if (e.numParlamentares < min) return false;
+            if (busca && !String(e.fornecedor || '').toLowerCase().includes(busca)) return false;
+            return true;
+        });
+    }
+
+    function renderizarEmpresas() {
+        const container = $('#listaEmpresas');
+        if (!container) return;
+        const lista = empresasFiltradas();
+
+        if (!lista.length) {
+            renderizarEstadosVazio(container, 'estado-vazio', 'fa-building-user', 'Nenhuma empresa encontrada com os filtros atuais.');
+            return;
+        }
+
+        container.innerHTML = `
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+                Mostrando ${lista.length} de ${empresasCarregadas.length} empresas carregadas.
+            </p>
+            <div class="card-grid">
+                ${lista.map((e, i) => `
+                    <article class="card" style="display:flex;flex-direction:column;gap:8px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                            <h3 style="font-family:var(--font-corpo);font-size:15px;">${escaparHtml(e.fornecedor || '—')}</h3>
+                            <span class="badge badge-partido">${e.numParlamentares} parl.</span>
+                        </div>
+                        <div style="font-size:12px;color:var(--text-muted);">
+                            ${e.cnpjCpf ? `CNPJ/CPF: ${escaparHtml(e.cnpjCpf)}<br>` : ''}
+                            ${e.numDespesas} despesas · total recebido
+                        </div>
+                        <div class="card-valor">${MotorAlerta.fmtBRL(e.total)}</div>
+                        <button class="btn btn-sm btn-outline btn-empresa-detalhe" type="button" data-indice="${i}">
+                            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i> Ver parlamentares e comprovantes
+                        </button>
+                        <div class="empresa-detalhe" id="empresa-detalhe-${i}" style="display:none;margin-top:6px;font-size:13px;">
+                            ${e.parlamentares.map((p) => `
+                                <div style="border-top:1px solid var(--border-light);padding:8px 0;">
+                                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                                        <span class="badge ${p.cargo === 'Senador' ? 'badge-cargo' : 'badge-uf'}">${escaparHtml(p.cargo === 'Senador' ? 'Senador' : 'Deputado')}</span>
+                                        <strong>${escaparHtml(p.nome)}</strong>
+                                        <span style="color:var(--text-muted);">(${escaparHtml(p.partido || '—')}-${escaparHtml(p.uf || '—')})</span>
+                                    </div>
+                                    <div style="margin-top:4px;color:var(--text-secondary);">
+                                        Recebido: <strong>${MotorAlerta.fmtBRL(p.total)}</strong> · ${p.qtd} despesa${p.qtd === 1 ? '' : 's'}
+                                    </div>
+                                    ${p.comprovantes.length ? `
+                                        <div class="tabela-wrapper" style="margin-top:6px;">
+                                            <table class="tabela">
+                                                <thead><tr><th>Data</th><th>Tipo</th><th>Valor</th><th>Comprovante</th></tr></thead>
+                                                <tbody>
+                                                    ${p.comprovantes.map((c) => `
+                                                        <tr>
+                                                            <td>${escaparHtml(c.data || '—')}</td>
+                                                            <td style="white-space:normal;max-width:220px;">${escaparHtml(c.tipo || '—')}</td>
+                                                            <td>${MotorAlerta.fmtBRL(c.valor)}</td>
+                                                            <td>
+                                                                ${c.url
+                                                                    ? `<a href="${escaparHtml(c.url)}" target="_blank" rel="noopener" title="Abrir na fonte oficial"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Ver</a>`
+                                                                    : '<span class="texto-muted">—</span>'}
+                                                            </td>
+                                                        </tr>`).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Mostrando ${p.comprovantes.length} de ${p.numComprovantes} comprovantes deste parlamentar.</p>`
+                                    : `<p style="font-size:12px;color:var(--text-muted);margin-top:4px;">${p.numComprovantes} despesas — comprovantes sem link público direto (conferir na fonte oficial).</p>`}
+                                </div>`).join('')}
+                        </div>
+                    </article>`).join('')}
+            </div>`;
+
+        container.querySelectorAll('.btn-empresa-detalhe').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const caixa = document.getElementById(`empresa-detalhe-${btn.dataset.indice}`);
+                if (!caixa) return;
+                const aberto = caixa.style.display !== 'none';
+                caixa.style.display = aberto ? 'none' : '';
+                btn.querySelector('i').className = aberto ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up';
+            });
+        });
+    }
+
+    function iniciarEmpresas() {
+        const seletor = $('#seletorAnoEmpresas');
+        if (seletor) seletor.addEventListener('change', carregarEmpresas);
+        const busca = $('#buscaEmpresa');
+        if (busca) busca.addEventListener('input', renderizarEmpresas);
+        const filtroMin = $('#filtroMinParlamentares');
+        if (filtroMin) filtroMin.addEventListener('change', renderizarEmpresas);
+        const botao = $('#botaoAtualizarEmpresas');
+        if (botao) botao.addEventListener('click', carregarEmpresas);
+        carregarEmpresas();
+    }
+
+    /* ======================================================================
        ROTEADOR DE PÁGINA
        ====================================================================== */
     function rotearPagina() {
@@ -2729,6 +2847,7 @@
         else if ($('#perfilPresidente')) iniciarPresidente();
         else if ($('#listaCandidatos')) carregarCandidatos();
         else if ($('#formProposicao')) iniciarVotacaoProposicao();
+        else if ($('#listaEmpresas')) iniciarEmpresas();
     }
 
     /* ---- Atualização automática de dados (ciclo de 24h) ---- */

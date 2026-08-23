@@ -212,5 +212,10 @@ const SeuPoliticoAPI = (() => {
         mediaReferencia({ uf, ano } = {}) {
             return requisicao('/analise/media', { uf, ano });
         },
+
+        /** Empresas que recebem de 2+ parlamentares no ano. */
+        listarEmpresasRecorrentes(ano) {
+            return requisicao('/analise/empresas', { ano });
+        },
     };
 })();

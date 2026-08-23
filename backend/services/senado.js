@@ -118,6 +118,18 @@ async function obterSenador(id) {
     return senador;
 }
 
+/* ---- Registros CEAPS crus de um ano (API adm) — reutilizado por outras análises ---- */
+async function obterRegistrosCeaps(ano) {
+    const chaveCache = `senado:ceaps:registros:${ano}`;
+    const cached = await cache.obter(chaveCache);
+    if (cached) return cached;
+
+    const resposta = await requisitarSenadoAdm(`senadores/despesas_ceaps/${ano}`);
+    const registros = Array.isArray(resposta) ? resposta : (resposta.data || []);
+    await cache.gravar(chaveCache, registros, 12 * 3600);
+    return registros;
+}
+
 /* ---- Importa as despesas CEAPS de um ano (API adm) ---- */
 async function sincronizarCeaps(ano) {
     if (!habilitado) {
@@ -131,8 +143,7 @@ async function sincronizarCeaps(ano) {
     if (flag) return flag;
 
     console.log(`[senado] baixando CEAPS de ${ano}...`);
-    const resposta = await requisitarSenadoAdm(`senadores/despesas_ceaps/${ano}`);
-    const registros = Array.isArray(resposta) ? resposta : (resposta.data || []);
+    const registros = await obterRegistrosCeaps(ano);
 
     const porSenador = {};
     const indiceNomes = {};
@@ -484,6 +495,7 @@ module.exports = {
     obterSenador,
     sincronizarCeaps,
     obterDespesasCeaps,
+    obterRegistrosCeaps,
     obterFrequenciaVotacoes,
     obterVotacoesSenador,
     obterDetalheVotacaoSenado,

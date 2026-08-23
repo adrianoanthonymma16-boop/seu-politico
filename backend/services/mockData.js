@@ -396,6 +396,45 @@ module.exports = {
         };
     },
 
+    listarEmpresasRecorrentes(ano) {
+        const nomes = ['Companhia Aérea Nacional', 'Hotéis do Brasil Ltda', 'Posto Central', 'Assessoria Júnior', 'Mídia Propaganda SA', 'Locadora Nacional'];
+        const empresas = nomes.map((nome, e) => {
+            const parlamentares = Array.from({ length: 3 + e }, (_, p) => {
+                const dep = DEPUTADOS[(e + p) % DEPUTADOS.length];
+                return {
+                    cargo: p % 2 === 0 ? 'Deputado Federal' : 'Senador',
+                    nome: dep.nome,
+                    partido: dep.partido,
+                    uf: dep.uf,
+                    total: 2000 + Math.floor(((e + 1) * (p + 1)) * 137.5) * 2,
+                    qtd: 3 + p,
+                    numComprovantes: 3 + p,
+                    comprovantes: Array.from({ length: 3 }, (_, c) => ({
+                        data: `${ano}-0${c + 1}-${10 + c}`,
+                        tipo: 'Cota parlamentar',
+                        valor: 500 + c * 250 + e * 100,
+                        url: `https://www.camara.leg.br/cota-parlamentar/documentos/publ/${dep.id}/${ano}/${100000 + c}.pdf`,
+                        documento: String(100000 + c),
+                    })),
+                };
+            });
+            return {
+                fornecedor: nome,
+                cnpjCpf: String(10000000000000 + e * 1111111111111),
+                total: parlamentares.reduce((a, p) => a + p.total, 0),
+                numDespesas: parlamentares.reduce((a, p) => a + p.qtd, 0),
+                numParlamentares: parlamentares.length,
+                parlamentares,
+            };
+        });
+        return {
+            ano: Number(ano),
+            totalEmpresas: empresas.length,
+            empresas,
+            aviso: 'Empresas que receberam recursos de 2 ou mais parlamentares (dados fictícios).',
+        };
+    },
+
     obterFrequenciaDeputado(id, ano) {
         const rng = sementeDe(`freqDep${id}-${ano}`);
         const presencas = 80 + Math.floor(rng() * 40);

@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Seu Político — ferramenta de transparência cidadã que analisa dados públicos e aponta padrões de gastos de forma neutra e acessível.">
-    <title>Seu Político — Transparência Cidadã</title>
+    <meta name="description" content="Empresas que recebem de mais de um parlamentar — Seu Político.">
+    <title>Empresas recorrentes — Seu Político</title>
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
     <script src="src/js/theme.js"></script>
 </head>
 <body>
-    <!-- ===== CABEÇALHO FIXO ===== -->
     <header>
         <section>
             <div class="menu-toggle-label">
@@ -20,43 +19,30 @@
                     <i class="fa-solid fa-bars" aria-hidden="true"></i>
                 </button>
             </div>
-
-            <!-- Busca por nome -->
             <div id="Pesquisar" role="search">
                 <form class="search-wrapper" id="formBusca" action="resultados.html" method="get">
                     <label class="visually-hidden" for="campoBusca">Buscar político por nome</label>
-                    <input type="text" id="campoBusca" name="nome" placeholder="Digite o nome do político" autocomplete="off">
+                    <input type="text" id="campoBusca" name="nome" placeholder="Buscar por nome..." autocomplete="off">
                     <button type="submit" aria-label="Buscar político">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                     </button>
                 </form>
-                <div class="filtros-busca">
-                    <label class="visually-hidden" for="filtroPartido">Partido</label>
-                    <select id="filtroPartido" name="partido" aria-label="Filtrar por partido">
-                        <option value="">Todos os partidos</option>
-                    </select>
-                    <label class="visually-hidden" for="filtroUf">Estado</label>
-                    <select id="filtroUf" name="uf" aria-label="Filtrar por estado">
-                        <option value="">Todos os estados</option>
-                    </select>
-                </div>
             </div>
         </section>
     </header>
 
     <div class="page-layout">
-        <!-- ===== MENU LATERAL ===== -->
         <aside id="menuLateral" aria-label="Navegação principal">
             <nav>
                 <ul>
-                    <li><a href="index.html" class="ativo" aria-current="page"><i class="fa-solid fa-house" aria-hidden="true"></i> Início</a></li>
+                    <li><a href="index.html"><i class="fa-solid fa-house" aria-hidden="true"></i> Início</a></li>
                     <li><a href="dashboard.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Dashboard</a></li>
                     <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Deputados</a></li>
                     <li><a href="senadores.html"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Senadores</a></li>
                     <li><a href="presidente.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Presidente</a></li>
                     <li><a href="candidatos.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Candidatos 2026</a></li>
                     <li><a href="executivo.html"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Contratos</a></li>
-                    <li><a href="empresas.html"><i class="fa-solid fa-building-user" aria-hidden="true"></i> Empresas recorrentes</a></li>
+                    <li><a href="empresas.html" class="ativo" aria-current="page"><i class="fa-solid fa-building-user" aria-hidden="true"></i> Empresas recorrentes</a></li>
                     <li><a href="comparar.html"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar</a></li>
                     <li><a href="votacao.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</a></li>
                     <li><a href="politico.html"><i class="fa-solid fa-user" aria-hidden="true"></i> Perfil</a></li>
@@ -66,67 +52,55 @@
             </nav>
         </aside>
 
-        <!-- ===== CONTEÚDO PRINCIPAL ===== -->
         <main class="main-content" id="conteudoPrincipal">
-            <h2 class="page-title">Dados públicos. Sua opinião importa.</h2>
+            <h2 class="page-title">Empresas que recebem de mais de um parlamentar</h2>
             <p class="page-subtitle">
-                Analisamos dados públicos do Portal da Transparência e da Câmara dos Deputados
-                para ajudar você a fiscalizar os gastos públicos. Sem acusações: apenas dados claros
-                e padrões que valem a pena observar.
+                Fornecedores que receberam recursos da cota parlamentar (Câmara) e do CEAPS (Senado)
+                de <strong>2 ou mais parlamentares</strong> no ano. Apenas dados públicos — padrões
+                neutros para você investigar.
             </p>
 
-            <!-- Atualização de dados -->
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-                <button class="btn btn-sm btn-outline" id="botaoAtualizarHome" type="button">
-                    <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
-                </button>
-                <span id="seloAtualizadoHome" style="font-size:12px;color:var(--text-muted);"></span>
-            </div>
-
-            <!-- Indicadores rápidos -->
-            <section aria-label="Indicadores gerais" id="indicadoresGerais">
-                <div class="card-grid">
-                    <div class="card">
-                        <div class="card-titulo">Deputados monitorados</div>
-                        <div class="card-valor" id="totalDeputados">—</div>
-                    </div>
-                    <div class="card">
-                        <div class="card-titulo">Partidos</div>
-                        <div class="card-valor" id="totalPartidos">—</div>
-                    </div>
-                    <div class="card">
-                        <div class="card-titulo">Sinais de alerta recentes</div>
-                        <div class="card-valor" id="totalAlertas">—</div>
-                    </div>
-                    <div class="card">
-                        <div class="card-titulo">Fonte de dados</div>
-                        <div class="card-valor" style="font-size:18px;">Portal + Câmara</div>
-                    </div>
+            <!-- Controles -->
+            <section class="card comparar-seletor" aria-label="Filtros de empresas">
+                <div>
+                    <label for="seletorAnoEmpresas">Ano de referência</label>
+                    <select id="seletorAnoEmpresas" aria-label="Selecionar ano de referência">
+                        <option value="2026">2026</option>
+                        <option value="2025" selected>2025</option>
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                        <option value="2022">2022</option>
+                    </select>
+                </div>
+                <div style="flex:1;min-width:200px;">
+                    <label for="buscaEmpresa">Buscar fornecedor</label>
+                    <input type="text" id="buscaEmpresa" placeholder="Ex.: LATAM, postos, hotéis..." autocomplete="off"
+                           style="width:100%;padding:10px 12px;border:2px solid var(--border-light);border-radius:var(--radius);font-family:var(--font-corpo);">
+                </div>
+                <div>
+                    <label for="filtroMinParlamentares">Mínimo de parlamentares</label>
+                    <select id="filtroMinParlamentares" aria-label="Filtrar por número mínimo de parlamentares">
+                        <option value="2">2 ou mais</option>
+                        <option value="5">5 ou mais</option>
+                        <option value="10">10 ou mais</option>
+                        <option value="20">20 ou mais</option>
+                        <option value="50">50 ou mais</option>
+                    </select>
+                </div>
+                <div>
+                    <button class="btn" id="botaoAtualizarEmpresas" type="button">
+                        <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
+                    </button>
                 </div>
             </section>
 
-            <!-- Políticos que você acompanha (localStorage) -->
-            <div id="seguidosHome" aria-live="polite"></div>
-
-            <!-- Destaques / alertas recentes (sempre vindos da API) -->
-            <section aria-labelledby="tituloDestaques">
-                <h3 class="section-title" id="tituloDestaques"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> O que está chamando atenção</h3>
-                <div id="destaques" class="card-grid" aria-live="polite">
-                    <div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando destaques...</p></div>
-                </div>
-            </section>
-
-            <!-- Gráfico rápido de despesas -->
-            <section aria-labelledby="tituloGraficoHome">
-                <h3 class="section-title" id="tituloGraficoHome"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Gastos por categoria (cota parlamentar)</h3>
-                <div class="chart-box" id="graficoHomeContainer">
-                    <canvas id="graficoHome" aria-label="Gráfico de gastos por categoria da cota parlamentar" role="img"></canvas>
-                </div>
+            <!-- Resultado -->
+            <section id="listaEmpresas" aria-live="polite">
+                <div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando empresas...</p></div>
             </section>
         </main>
     </div>
 
-    <!-- ===== RODAPÉ ===== -->
     <footer>
         <div class="footer-container">
             <div class="footer-col">
@@ -145,10 +119,8 @@
                 <ul>
                     <li><a href="index.html">Início</a></li>
                     <li><a href="dashboard.html">Dashboard</a></li>
-                    <li><a href="comparar.html">Comparar gastos</a></li>
-                    <li><a href="#">Aprenda a fiscalizar</a></li>
-                    <li><a href="#">Sobre Nós</a></li>
-                    <li><a href="#">Contato</a></li>
+                    <li><a href="empresas.html">Empresas recorrentes</a></li>
+                    <li><a href="aprender.html">Aprenda a fiscalizar</a></li>
                 </ul>
             </div>
             <div class="footer-col">
@@ -167,9 +139,7 @@
         </div>
     </footer>
 
-    <!-- Libs -->
     <script src="src/assets/vendor/chart.umd.min.js"></script>
-    <!-- Módulos do site -->
     <script src="src/js/api.js"></script>
     <script src="src/js/alerts.js"></script>
     <script src="src/js/main.js"></script>
