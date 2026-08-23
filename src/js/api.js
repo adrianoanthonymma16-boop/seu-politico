@@ -70,6 +70,56 @@ const SeuPoliticoAPI = (() => {
             return requisicao(`/camara/deputado/${id}/despesas`, { ano, mes, pagina });
         },
 
+        /** Como o deputado votou em proposições (registo de votos). */
+        obterVotacoesDeputado(id, { ano, pagina = 1 } = {}) {
+            return requisicao(`/camara/deputado/${id}/votacoes`, { ano, pagina });
+        },
+
+        /** Detalhe de uma votação + votos dos parlamentares. */
+        obterDetalheVotacao(idVotacao, { pagina = 1 } = {}) {
+            return requisicao(`/camara/votacao/${idVotacao}`, { pagina });
+        },
+
+        /** Busca uma proposição por sigla, número e ano (ex.: PL 1234/2025). */
+        buscarProposicao(siglaTipo, numero, ano) {
+            return requisicao('/camara/proposicao', { siglaTipo, numero, ano });
+        },
+
+        /** Votações de uma proposição. */
+        obterVotacoesProposicao(idProposicao) {
+            return requisicao(`/camara/proposicao/${idProposicao}/votacoes`);
+        },
+
+        /** Presenças e faltas de um deputado em plenário no ano. */
+        obterFrequenciaDeputado(id, ano) {
+            return requisicao(`/camara/deputado/${id}/frequencia`, { ano });
+        },
+
+        /** Discursos/pronunciamentos de um deputado no ano. */
+        obterDiscursosDeputado(id, ano) {
+            return requisicao(`/camara/deputado/${id}/discursos`, { ano });
+        },
+
+        /** Presenças e faltas de um senador em votações nominais no ano. */
+        obterFrequenciaSenador(id, ano) {
+            return requisicao(`/senado/senador/${id}/frequencia`, { ano });
+        },
+
+        /** Como o senador votou em proposições (registo de votos). */
+        obterVotacoesSenador(id, { ano, pagina = 1 } = {}) {
+            return requisicao(`/senado/senador/${id}/votacoes`, { ano });
+        },
+
+        /** Detalhe de uma votação do Senado + votos de todos os senadores. */
+        obterDetalheVotacaoSenado(sessao, votacao) {
+            return requisicao(`/senado/votacao/${sessao}/${votacao}`);
+        },
+
+        /** Discursos/pronunciamentos de um senador no ano. */
+        obterDiscursosSenador(id, ano) {
+            return requisicao(`/senado/senador/${id}/discursos`, { ano });
+        },
+
         /** Lista de partidos (para o filtro). */
         obterPartidos() {
             return requisicao('/camara/partidos');

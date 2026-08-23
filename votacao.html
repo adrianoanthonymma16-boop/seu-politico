@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Resultados de busca de parlamentares — Seu Político.">
-    <title>Resultados — Seu Político</title>
+    <meta name="description" content="Veja como votaram os deputados em uma proposição — Seu Político.">
+    <title>Votações — Seu Político</title>
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
@@ -27,16 +27,6 @@
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                     </button>
                 </form>
-                <div class="filtros-busca">
-                    <label class="visually-hidden" for="filtroPartido">Partido</label>
-                    <select id="filtroPartido" name="partido" aria-label="Filtrar por partido">
-                        <option value="">Todos os partidos</option>
-                    </select>
-                    <label class="visually-hidden" for="filtroUf">Estado</label>
-                    <select id="filtroUf" name="uf" aria-label="Filtrar por estado">
-                        <option value="">Todos os estados</option>
-                    </select>
-                </div>
             </div>
         </section>
     </header>
@@ -47,13 +37,13 @@
                 <ul>
                     <li><a href="index.html"><i class="fa-solid fa-house" aria-hidden="true"></i> Início</a></li>
                     <li><a href="dashboard.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Dashboard</a></li>
-                    <li><a href="resultados.html" class="ativo" aria-current="page"><i class="fa-solid fa-users" aria-hidden="true"></i> Deputados</a></li>
+                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Deputados</a></li>
                     <li><a href="senadores.html"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Senadores</a></li>
                     <li><a href="presidente.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Presidente</a></li>
                     <li><a href="candidatos.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Candidatos 2026</a></li>
                     <li><a href="executivo.html"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Contratos</a></li>
                     <li><a href="comparar.html"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar</a></li>
-                    <li><a href="votacao.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</a></li>
+                    <li><a href="votacao.html" class="ativo" aria-current="page"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</a></li>
                     <li><a href="politico.html"><i class="fa-solid fa-user" aria-hidden="true"></i> Perfil</a></li>
                     <li><a href="#"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> Licitações</a></li>
                     <li><a href="aprender.html"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
@@ -62,18 +52,40 @@
         </aside>
 
         <main class="main-content" id="conteudoPrincipal">
-            <h2 class="page-title" id="tituloResultados">Deputados encontrados</h2>
+            <h2 class="page-title">Votações em proposições</h2>
             <p class="page-subtitle">
-                Os dados abaixo são públicos. Os sinais indicados servem apenas para orientar sua investigação.
+                Digite uma proposição (ex.: <strong>PL 1234/2025</strong>, <strong>PEC 45/2023</strong> ou
+                <strong>MPV 1150/2025</strong>) e veja o placar e como votou cada deputado,
+                com destaque para os do seu estado. Dados públicos da Câmara dos Deputados.
             </p>
 
-            <div id="resumoBusca" aria-live="polite"></div>
-            <div id="listaResultados" aria-live="polite">
-                <div class="carregando">
-                    <i class="fa-solid fa-circle-notch" aria-hidden="true"></i>
-                    <p>Buscando parlamentares...</p>
+            <!-- Busca -->
+            <section class="card comparar-seletor" aria-label="Busca de proposição">
+                <div style="flex:2;min-width:240px;">
+                    <label for="campoProposicao">Proposição</label>
+                    <form id="formProposicao" style="display:flex;gap:8px;">
+                        <input type="text" id="campoProposicao" placeholder="Ex.: PL 1234/2025" autocomplete="off"
+                               style="flex:1;padding:10px 12px;border:2px solid var(--border-light);border-radius:var(--radius);font-family:var(--font-corpo);">
+                        <button class="btn" type="submit">
+                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Buscar
+                        </button>
+                    </form>
                 </div>
-            </div>
+                <div>
+                    <label for="seletorUfUsuario">Sua UF</label>
+                    <select id="seletorUfUsuario" aria-label="Selecionar sua UF para destacar deputados">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Resultado -->
+            <section id="resultadoProposicao" aria-live="polite">
+                <div class="estado-vazio">
+                    <i class="fa-solid fa-file-contract" aria-hidden="true"></i>
+                    <p>Busque uma proposição para ver o histórico de votações.</p>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -95,8 +107,8 @@
                 <ul>
                     <li><a href="index.html">Início</a></li>
                     <li><a href="dashboard.html">Dashboard</a></li>
-                    <li><a href="comparar.html">Comparar gastos</a></li>
-                    <li><a href="#">Aprenda a fiscalizar</a></li>
+                    <li><a href="votacao.html">Votações</a></li>
+                    <li><a href="aprender.html">Aprenda a fiscalizar</a></li>
                 </ul>
             </div>
             <div class="footer-col">

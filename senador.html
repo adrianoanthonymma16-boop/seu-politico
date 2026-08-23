@@ -8,6 +8,7 @@
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
+    <script src="src/js/theme.js"></script>
 </head>
 <body>
     <header>
@@ -36,15 +37,16 @@
                 <ul>
                     <li><a href="index.html"><i class="fa-solid fa-house" aria-hidden="true"></i> Início</a></li>
                     <li><a href="dashboard.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Dashboard</a></li>
-                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Parlamentares</a></li>
+                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Deputados</a></li>
                     <li><a href="senadores.html" class="ativo" aria-current="page"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Senadores</a></li>
                     <li><a href="presidente.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Presidente</a></li>
                     <li><a href="candidatos.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Candidatos 2026</a></li>
                     <li><a href="executivo.html"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Contratos</a></li>
                     <li><a href="comparar.html"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar</a></li>
+                    <li><a href="votacao.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</a></li>
                     <li><a href="politico.html"><i class="fa-solid fa-user" aria-hidden="true"></i> Perfil</a></li>
                     <li><a href="#"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> Licitações</a></li>
-                    <li><a href="#"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
+                    <li><a href="aprender.html"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
                 </ul>
             </nav>
         </aside>
@@ -75,6 +77,7 @@
             <section aria-labelledby="tituloAnaliseSenador">
                 <h3 class="section-title" id="tituloAnaliseSenador"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Análise de gastos (CEAPS)</h3>
                 <div id="listaAlertasSenador" aria-live="polite"></div>
+                <div id="topFornecedoresSenador" aria-live="polite"></div>
             </section>
 
             <section aria-label="Indicadores do senador">
@@ -143,6 +146,20 @@
                     </div>
                 </div>
 
+                <div class="card" style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="btn btn-sm btn-outline btn-exportar" type="button" data-contexto="Senador" data-formato="csv">
+                            <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Exportar CSV
+                        </button>
+                        <button class="btn btn-sm btn-outline btn-exportar" type="button" data-contexto="Senador" data-formato="json">
+                            <i class="fa-solid fa-file-code" aria-hidden="true"></i> Exportar JSON
+                        </button>
+                    </div>
+                    <button class="btn btn-sm btn-compartilhar" type="button">
+                        <i class="fa-solid fa-link" aria-hidden="true"></i> Copiar link
+                    </button>
+                </div>
+
                 <div class="tabela-wrapper">
                     <table class="tabela">
                         <thead>
@@ -161,6 +178,56 @@
                     </table>
                 </div>
                 <p id="contagemDespesasSenador" style="margin-top:10px;font-size:13px;color:var(--text-muted);"></p>
+            </section>
+
+            <!-- Votações em projetos de lei -->
+            <section aria-labelledby="tituloVotacoesSenador" style="margin-top:28px;">
+                <h3 class="section-title" id="tituloVotacoesSenador">
+                    <i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações em projetos de lei
+                </h3>
+                <p class="page-subtitle">
+                    Como este senador votou nas proposições em Plenário, conforme dados públicos
+                    do Senado Federal.
+                </p>
+                <div id="listaVotacoesSenador" aria-live="polite">
+                    <div class="carregando">
+                        <i class="fa-solid fa-circle-notch" aria-hidden="true"></i>
+                        <p>Carregando votações...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Presença em votações -->
+            <section aria-labelledby="tituloPresencaSenador" style="margin-top:28px;">
+                <h3 class="section-title" id="tituloPresencaSenador">
+                    <i class="fa-solid fa-user-check" aria-hidden="true"></i> Presença em votações
+                </h3>
+                <p class="page-subtitle">
+                    Comparecimento do senador nas votações nominais do Plenário — presenças,
+                    faltas justificadas e injustificadas, conforme dados públicos do Senado.
+                </p>
+                <div id="conteudoPresencaSenador" aria-live="polite">
+                    <div class="carregando">
+                        <i class="fa-solid fa-circle-notch" aria-hidden="true"></i>
+                        <p>Carregando presença...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Discursos -->
+            <section aria-labelledby="tituloDiscursosSenador" style="margin-top:28px;">
+                <h3 class="section-title" id="tituloDiscursosSenador">
+                    <i class="fa-solid fa-microphone-lines" aria-hidden="true"></i> Discursos
+                </h3>
+                <p class="page-subtitle">
+                    Pronunciamentos registrados, conforme dados públicos do Senado Federal.
+                </p>
+                <div id="listaDiscursosSenador" aria-live="polite">
+                    <div class="carregando">
+                        <i class="fa-solid fa-circle-notch" aria-hidden="true"></i>
+                        <p>Carregando discursos...</p>
+                    </div>
+                </div>
             </section>
         </main>
     </div>

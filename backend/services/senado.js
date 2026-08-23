@@ -274,11 +274,220 @@ function mockDespesasSenador(id, ano) {
     return despesas;
 }
 
+/* ---- Frequência do senador em votações nominais ---- */
+// Conjuntos normalizados (sem acento, maiúsculas) — comparar via normalizarSiglaVoto().
+const SIGLA_PRESENCA = new Set([
+    'VOTOU', 'VO', 'SIM', 'NAO', 'ABSTENCAO', 'P-NRV', 'P-OD', 'OB', 'SF', 'PSF', 'PR', 'PS',
+    'SI', 'VS', 'VOTO DO PRESIDENTE', 'PRESIDENTE (ART. 51 RISF)',
+]);
+const SIGLA_FALTA_JUSTIFICADA = new Set([
+    'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'LA', 'LAF', 'LAP', 'LC', 'LCS', 'LEG', 'LG',
+    'LGA', 'LL', 'LN', 'LP', 'LPA', 'LS', 'LSP', 'AFO', 'AUS', 'AP', 'MIS', 'MER', 'REP',
+    'DJ', 'GR', 'CAS', 'IL', 'EP', 'EPR', 'RET', 'REN', 'TER', 'PER', 'IMP', 'NA',
+]);
+const SIGLA_FALTA_INJUSTIFICADA = new Set(['NCOM', 'NR']);
+
+function normalizarSiglaVoto(sigla) {
+    return String(sigla || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .trim();
+}
+
+/**
+ * Presenças e faltas de um senador em votações nominais de Plenário no ano.
+ * O Senado não publica um resumo de frequência em API; usamos o webservice de
+ * votações (filtrado por parlamentar) e classificamos o comparecimento pelas
+ * siglas oficiais de voto (tiposComparecimento). Cache de 6h.
+ */
+async function obterFrequenciaVotacoes(senadorId, ano) {
+    const chaveCache = `senado:frequencia:${senadorId}:${ano}`;
+    const cached = await cache.obter(chaveCache);
+    if (cached) return cached;
+
+    if (MOCK) {
+        const resultado = mock.obterFrequenciaSenador(senadorId, ano);
+        await cache.gravar(chaveCache, resultado, 6 * 3600);
+        return resultado;
+    }
+
+    const resposta = await requisitarSenadoLegis('votacao', {
+        codigoParlamentar: senadorId,
+        dataInicio: `${ano}-01-01`,
+        dataFim: `${ano}-12-31`,
+    });
+    const registros = Array.isArray(resposta) ? resposta : (resposta.data || []);
+
+    let presencas = 0;
+    let faltasJustificadas = 0;
+    let faltasInjustificadas = 0;
+    let outras = 0;
+
+    for (const rec of registros) {
+        const voto = rec.votos && rec.votos[0] ? rec.votos[0].siglaVotoParlamentar : null;
+        const sigla = normalizarSiglaVoto(voto);
+        if (!sigla) { outras++; continue; }
+        if (SIGLA_PRESENCA.has(sigla)) presencas++;
+        else if (SIGLA_FALTA_JUSTIFICADA.has(sigla)) faltasJustificadas++;
+        else if (SIGLA_FALTA_INJUSTIFICADA.has(sigla)) faltasInjustificadas++;
+        else outras++;
+    }
+
+    const total = presencas + faltasJustificadas + faltasInjustificadas + outras;
+    const resultado = {
+        fonte: 'Comparecimento em votações nominais — Senado Federal',
+        urlFonte: `https://legis.senado.leg.br/dadosabertos/votacao?codigoParlamentar=${senadorId}&dataInicio=${ano}-01-01&dataFim=${ano}-12-31`,
+        ano: Number(ano),
+        totalVotacoes: registros.length,
+        presencas,
+        faltasJustificadas,
+        faltasInjustificadas,
+        outras,
+        taxaPresenca: total ? Math.round((presencas / total) * 10000) / 100 : null,
+    };
+    await cache.gravar(chaveCache, resultado, 6 * 3600);
+    return resultado;
+}
+
+/* ---- Votações de um senador em Plenário (webservice /votacao) ---- */
+async function obterVotacoesSenador(senadorId, ano) {
+    const chaveCache = `senado:votacoes:${senadorId}:${ano}`;
+    const cached = await cache.obter(chaveCache);
+    if (cached) return cached;
+
+    if (MOCK) {
+        const resultado = mock.obterVotacoesSenador(senadorId, { ano });
+        await cache.gravar(chaveCache, resultado, 6 * 3600);
+        return resultado;
+    }
+
+    const resposta = await requisitarSenadoLegis('votacao', {
+        codigoParlamentar: senadorId,
+        dataInicio: `${ano}-01-01`,
+        dataFim: `${ano}-12-31`,
+    });
+    const registros = Array.isArray(resposta) ? resposta : (resposta.data || []);
+
+    const dados = registros.map((rec) => ({
+        idVotacao: rec.codigoSessaoVotacao,
+        sessao: rec.codigoSessao,
+        data: rec.dataSessao || '',
+        orgao: 'Plenário',
+        titulo: rec.identificacao || 'Votação',
+        ementa: rec.descricaoVotacao || rec.ementa || '',
+        voto: rec.votos && rec.votos[0] ? (rec.votos[0].siglaVotoParlamentar || '—') : '—',
+    })).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+
+    const resultado = { dados, links: { pagina: 1, ultima: 1 } };
+    await cache.gravar(chaveCache, resultado, 6 * 3600);
+    return resultado;
+}
+
+/* ---- Detalhe de uma votação do Senado (placar + votos de todos) ---- */
+async function obterDetalheVotacaoSenado(codigoSessao, codigoSessaoVotacao) {
+    const chaveCache = `senado:votacao:${codigoSessao}:${codigoSessaoVotacao}`;
+    const cached = await cache.obter(chaveCache);
+    if (cached) return cached;
+
+    if (MOCK) {
+        const resultado = mock.obterDetalheVotacaoSenado(codigoSessaoVotacao);
+        await cache.gravar(chaveCache, resultado, 12 * 3600);
+        return resultado;
+    }
+
+    const resposta = await requisitarSenadoLegis('votacao', { codigoSessao });
+    const registros = Array.isArray(resposta) ? resposta : (resposta.data || []);
+    const rec = registros.find((r) => String(r.codigoSessaoVotacao) === String(codigoSessaoVotacao));
+    if (!rec) {
+        throw Object.assign(new Error('Votação não encontrada.'), { status: 404 });
+    }
+
+    const n = (sigla) => String(sigla || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const votos = (rec.votos || []).map((v) => ({
+        senador: v.codigoParlamentar ? {
+            id: v.codigoParlamentar,
+            nome: v.nomeParlamentar || '—',
+            partido: v.siglaPartidoParlamentar || '—',
+            uf: v.siglaUFParlamentar || '—',
+        } : null,
+        voto: v.siglaVotoParlamentar || '—',
+    }));
+
+    const resultado = {
+        idVotacao: rec.codigoSessaoVotacao,
+        data: rec.dataSessao || '',
+        orgao: 'Plenário',
+        titulo: rec.identificacao || 'Votação',
+        ementa: rec.descricaoVotacao || rec.ementa || '',
+        resultado: {
+            totalVotos: votos.length,
+            sim: votos.filter((v) => n(v.voto) === 'SIM').length,
+            nao: votos.filter((v) => n(v.voto) === 'NAO').length,
+            abstencoes: votos.filter((v) => n(v.voto) === 'ABSTENCAO').length,
+        },
+        votos,
+    };
+    await cache.gravar(chaveCache, resultado, 12 * 3600);
+    return resultado;
+}
+
+/* ---- Discursos do senador (best-effort; API do Senado pode devolver vazio) ---- */
+async function obterDiscursosSenador(senadorId, ano) {
+    const chaveCache = `senado:discursos:${senadorId}:${ano}`;
+    const cached = await cache.obter(chaveCache);
+    if (cached) return cached;
+
+    if (MOCK) {
+        const resultado = mock.obterDiscursosSenador(senadorId, ano);
+        await cache.gravar(chaveCache, resultado, 6 * 3600);
+        return resultado;
+    }
+
+    const resposta = await requisitarSenadoLegis(`senador/${senadorId}/discursos`, {
+        dataInicio: `${ano}-01-01`,
+        dataFim: `${ano}-12-31`,
+    });
+
+    const brutos = [];
+    const raiz = resposta.DiscursosParlamentar || resposta || {};
+    const diretos = raiz.Discursos?.Discurso;
+    if (Array.isArray(diretos)) brutos.push(...diretos);
+    else if (diretos) brutos.push(diretos);
+
+    const pron = raiz.Parlamentar?.Pronunciamentos;
+    if (Array.isArray(pron)) brutos.push(...pron);
+    else if (pron?.Pronunciamento) {
+        if (Array.isArray(pron.Pronunciamento)) brutos.push(...pron.Pronunciamento);
+        else brutos.push(pron.Pronunciamento);
+    }
+
+    const dados = brutos
+        .map((d) => ({
+            dataHoraInicio: d.DataPronunciamento || d.Data || '',
+            tipoDiscurso: d.TipoPronunciamento || d.Tipo || '',
+            sumario: d.Sumario || d.Resumo || d.Indexacao || '',
+            transcricao: d.Transcricao || d.Texto || '',
+            urlTexto: d.UrlTexto || '',
+            urlAudio: d.UrlAudio || '',
+            urlVideo: d.UrlVideo || '',
+        }))
+        .filter((d) => d.dataHoraInicio || d.sumario || d.transcricao);
+
+    const resultado = { dados, links: { pagina: 1, ultima: 1 } };
+    await cache.gravar(chaveCache, resultado, 6 * 3600);
+    return resultado;
+}
+
 module.exports = {
     listarSenadores,
     obterSenador,
     sincronizarCeaps,
     obterDespesasCeaps,
+    obterFrequenciaVotacoes,
+    obterVotacoesSenador,
+    obterDetalheVotacaoSenado,
+    obterDiscursosSenador,
     mockDespesasSenador,
     normalizarNome,
     normalizarDespesaCeaps,

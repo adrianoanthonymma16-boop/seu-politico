@@ -48,6 +48,10 @@
     let senadorAtualId = null;
     let presidenteViagens = [];
     let presidenteContratos = [];
+    let comparacaoAtual = null;
+    let votacoesAtuais = [];
+    let votacaoPagina = 1;
+    let votacoesSenadorAtuais = [];
     function criarOuAtualizar(id, config) {
         // Proteção: se a biblioteca de gráficos não carregou, nunca derruba a página.
         if (typeof Chart === 'undefined') {
@@ -113,6 +117,37 @@
         }
     }
 
+    // Bloco "Maiores fornecedores" na análise de gastos (top 5, neutro).
+    function renderizarTopFornecedores(container, fornecedores, { total = 0 } = {}) {
+        if (!container) return;
+        const lista = (Array.isArray(fornecedores) ? fornecedores : []).slice(0, 5);
+        if (!lista.length) {
+            container.innerHTML = '';
+            return;
+        }
+        container.innerHTML = `
+            <div class="card" style="margin-top:16px;">
+                <h4 style="margin:0 0 2px;"><i class="fa-solid fa-building-user" aria-hidden="true"></i> Maiores fornecedores no ano</h4>
+                <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px;">Apenas dados públicos — veja quem mais recebeu recursos.</p>
+                <table class="tabela">
+                    <thead><tr><th>Fornecedor</th><th>Total</th><th>%</th></tr></thead>
+                    <tbody>
+                        ${lista.map((f) => {
+                            const percentual = f.percentual != null
+                                ? f.percentual
+                                : (total > 0 ? ((Number(f.valor) || 0) / total) * 100 : 0);
+                            return `
+                            <tr>
+                                <td>${escaparHtml(f.fornecedor || '—')}</td>
+                                <td>${MotorAlerta.fmtBRL(f.valor)}</td>
+                                <td>${MotorAlerta.fmtNumero(percentual, 1)}%</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
     /* ---- FILTROS DE TABELA (gastos por tipo, mês e fornecedor) ---- */
     function popularTiposFiltro(select, itens, campoTipo = 'tipo') {
         if (!select) return;
@@ -131,14 +166,20 @@
         });
     }
 
-    // Liga os controles de filtro a um renderizador de tabela.
+    // Liga os controles de filtro a um renderizador de tabela e sincroniza a URL.
     function ligarFiltrosTabela(prefixo, renderer, campoBuscaId) {
+        const cfg = configFiltrosUrl(prefixo);
+        const buscaId = campoBuscaId || cfg.buscaId;
+        aplicarFiltrosDaUrl(prefixo);
+
+        const sincronizar = () => { renderer(); gravarFiltrosNaUrl(prefixo); };
+
         ['filtroTipo', 'filtroMes'].forEach((base) => {
             const el = $(`#${base}${prefixo}`);
-            if (el) el.addEventListener('change', renderer);
+            if (el) el.addEventListener('change', sincronizar);
         });
-        const busca = $(campoBuscaId || `#filtroFornecedor${prefixo}`);
-        if (busca) busca.addEventListener('input', renderer);
+        const busca = $(buscaId);
+        if (busca) busca.addEventListener('input', sincronizar);
         const limpar = $(`#botaoLimparFiltros${prefixo}`);
         if (limpar) {
             limpar.addEventListener('click', () => {
@@ -146,11 +187,15 @@
                     const el = $(`#${base}${prefixo}`);
                     if (el) el.value = '';
                 });
-                const b = $(campoBuscaId || `#filtroFornecedor${prefixo}`);
+                const b = $(buscaId);
                 if (b) b.value = '';
                 renderer();
+                gravarFiltrosNaUrl(prefixo);
             });
         }
+
+        // Re-renderiza com os filtros vindos da URL já aplicados.
+        renderer();
     }
 
     function linhaDespesa(dsp) {
@@ -182,6 +227,310 @@
             el.classList.remove('visivel');
             setTimeout(() => el.remove(), 350);
         }, 4500);
+    }
+
+    /* ---- EXPORTAÇÃO (CSV/JSON) E COMPARTILHAMENTO POR URL ---- */
+    function baixarArquivo(nomeArquivo, conteudo, tipoMime) {
+        const blob = new Blob([conteudo], { type: tipoMime });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = nomeArquivo;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function escaparCSV(valor) {
+        const texto = String(valor ?? '');
+        return /[";\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+    }
+
+    function exportarCSV(nomeArquivo, colunas, linhas) {
+        const cabecalho = colunas.map((c) => escaparCSV(c.titulo)).join(';');
+        const corpo = linhas.map((linha) =>
+            colunas.map((c) => escaparCSV(linha[c.chave])).join(';')
+        ).join('\n');
+        // BOM UTF-8 para o Excel abrir corretamente acentos em pt-BR.
+        baixarArquivo(nomeArquivo, `\ufeff${cabecalho}\n${corpo}`, 'text/csv;charset=utf-8');
+    }
+
+    function exportarJSON(nomeArquivo, dados) {
+        baixarArquivo(nomeArquivo, JSON.stringify(dados, null, 2), 'application/json;charset=utf-8');
+    }
+
+    async function copiarLink() {
+        const url = window.location.href;
+        try {
+            await navigator.clipboard.writeText(url);
+            notificar('Link copiado! Compartilhe sua análise.', 'fa-link');
+        } catch (erro) {
+            const temporario = document.createElement('textarea');
+            temporario.value = url;
+            temporario.style.position = 'fixed';
+            temporario.style.opacity = '0';
+            document.body.appendChild(temporario);
+            temporario.select();
+            try {
+                document.execCommand('copy');
+                notificar('Link copiado! Compartilhe sua análise.', 'fa-link');
+            } catch (e) {
+                notificar('Não foi possível copiar o link automaticamente.', 'fa-triangle-exclamation');
+            }
+            document.body.removeChild(temporario);
+        }
+    }
+
+    // Configuração dos filtros para sincronizar com a URL (e reutilizada na exportação).
+    function configFiltrosUrl(prefixo) {
+        if (prefixo === 'Presidente') {
+            return { buscaId: '#filtroBeneficiarioPresidente', campoBusca: 'beneficiario', paramBusca: 'beneficiario' };
+        }
+        if (prefixo === 'ContratoPresidente') {
+            return { buscaId: '#filtroFornecedorContratoPresidente', campoBusca: 'fornecedor', paramBusca: 'fornecedor' };
+        }
+        return { buscaId: `#filtroFornecedor${prefixo}`, campoBusca: 'fornecedor', paramBusca: 'fornecedor' };
+    }
+
+    function obterFiltrosDeControles(prefixo) {
+        const cfg = configFiltrosUrl(prefixo);
+        const tipo = $(`#filtroTipo${prefixo}`)?.value || '';
+        const mes = $(`#filtroMes${prefixo}`)?.value || '';
+        const busca = ($(cfg.buscaId)?.value || '').toLowerCase().trim();
+        return { tipo, mes, busca, campoBusca: cfg.campoBusca };
+    }
+
+    function gravarFiltrosNaUrl(prefixo) {
+        const cfg = configFiltrosUrl(prefixo);
+        const { tipo, mes, busca } = obterFiltrosDeControles(prefixo);
+        const url = new URL(window.location);
+        if (tipo) url.searchParams.set('tipo', tipo); else url.searchParams.delete('tipo');
+        if (mes) url.searchParams.set('mes', mes); else url.searchParams.delete('mes');
+        if (busca) url.searchParams.set(cfg.paramBusca, busca); else url.searchParams.delete(cfg.paramBusca);
+        history.replaceState(null, '', url);
+    }
+
+    function aplicarFiltrosDaUrl(prefixo) {
+        const cfg = configFiltrosUrl(prefixo);
+        const tipo = lerParametro('tipo');
+        const mes = lerParametro('mes');
+        const busca = lerParametro(cfg.paramBusca);
+        const selTipo = $(`#filtroTipo${prefixo}`);
+        const selMes = $(`#filtroMes${prefixo}`);
+        const inputBusca = $(cfg.buscaId);
+        if (selTipo && tipo) selTipo.value = tipo;
+        if (selMes && mes) selMes.value = mes;
+        if (inputBusca && busca) inputBusca.value = busca;
+    }
+
+    const COLUNAS_DESPESA = [
+        { titulo: 'Data', chave: 'data' },
+        { titulo: 'Mês', chave: 'mes' },
+        { titulo: 'Ano', chave: 'ano' },
+        { titulo: 'Tipo', chave: 'tipo' },
+        { titulo: 'Fornecedor', chave: 'fornecedor' },
+        { titulo: 'Valor (R$)', chave: 'valor' },
+        { titulo: 'Comprovante', chave: 'url' },
+    ];
+
+    const COLUNAS_VIAGENS = [
+        { titulo: 'Beneficiário', chave: 'beneficiario' },
+        { titulo: 'Motivo', chave: 'motivo' },
+        { titulo: 'Tipo', chave: 'tipoViagem' },
+        { titulo: 'Início', chave: 'dataInicio' },
+        { titulo: 'Passagem (R$)', chave: 'valorPassagem' },
+        { titulo: 'Diárias (R$)', chave: 'valorDiarias' },
+        { titulo: 'Total (R$)', chave: 'valorTotal' },
+        { titulo: 'Comprovante', chave: 'linkPortal' },
+    ];
+
+    const COLUNAS_CONTRATOS = [
+        { titulo: 'Número', chave: 'numero' },
+        { titulo: 'Objeto', chave: 'objeto' },
+        { titulo: 'Fornecedor', chave: 'fornecedor' },
+        { titulo: 'Modalidade', chave: 'modalidade' },
+        { titulo: 'Assinatura', chave: 'dataAssinatura' },
+        { titulo: 'Valor inicial (R$)', chave: 'valorInicial' },
+        { titulo: 'Valor final (R$)', chave: 'valorFinal' },
+        { titulo: 'Comprovante', chave: 'linkPortal' },
+    ];
+
+    const CONTEXTOS_EXPORTACAO = {
+        Deputado: { prefixo: 'Deputado', colunas: COLUNAS_DESPESA, fonte: () => perfilDespesas, arquivo: 'deputado-despesas' },
+        Senador: { prefixo: 'Senador', colunas: COLUNAS_DESPESA, fonte: () => senadorDespesas, arquivo: 'senador-despesas' },
+        Presidente: { prefixo: 'Presidente', colunas: COLUNAS_VIAGENS, fonte: () => presidenteViagens, arquivo: 'presidente-viagens' },
+        ContratoPresidente: { prefixo: 'ContratoPresidente', colunas: COLUNAS_CONTRATOS, fonte: () => presidenteContratos, arquivo: 'presidente-contratos' },
+    };
+
+    function registrosFiltradosDoContexto(chave) {
+        const ctx = CONTEXTOS_EXPORTACAO[chave];
+        if (!ctx) return [];
+        const { tipo, mes, busca, campoBusca } = obterFiltrosDeControles(ctx.prefixo);
+        return filtrarDespesas(ctx.fonte(), { tipo, mes, busca, campoBusca });
+    }
+
+    function exportarCSVDoContexto(chave) {
+        const ctx = CONTEXTOS_EXPORTACAO[chave];
+        if (!ctx) return;
+        exportarCSV(`${ctx.arquivo}.csv`, ctx.colunas, registrosFiltradosDoContexto(chave));
+    }
+
+    function exportarJSONDoContexto(chave) {
+        const ctx = CONTEXTOS_EXPORTACAO[chave];
+        if (!ctx) return;
+        const { tipo, mes, busca } = obterFiltrosDeControles(ctx.prefixo);
+        exportarJSON(`${ctx.arquivo}.json`, {
+            geradoEm: new Date().toISOString(),
+            filtros: { tipo, mes, busca },
+            registros: registrosFiltradosDoContexto(chave),
+        });
+    }
+
+    function exportarComparacao(formato) {
+        if (!comparacaoAtual) {
+            notificar('Faça uma comparação antes de exportar.', 'fa-hand-pointer');
+            return;
+        }
+        const dados = comparacaoAtual;
+        if (formato === 'json') {
+            exportarJSON('comparacao.json', {
+                geradoEm: new Date().toISOString(),
+                ano: dados.ano,
+                deputados: dados.deputados,
+                categorias: dados.categorias,
+            });
+        } else {
+            const colunas = [
+                { titulo: 'Nome', chave: 'nome' },
+                { titulo: 'Partido', chave: 'partido' },
+                { titulo: 'UF', chave: 'uf' },
+                { titulo: 'Cargo', chave: 'cargo' },
+                { titulo: 'Total (R$)', chave: 'total' },
+                { titulo: 'Média mensal (R$)', chave: 'media' },
+                { titulo: 'Nº despesas', chave: 'quantidade' },
+                { titulo: 'Principal categoria', chave: 'categoriaPrincipal' },
+            ];
+            exportarCSV('comparacao.csv', colunas, dados.deputados);
+        }
+    }
+
+    function ligarExportacao() {
+        $$('.btn-exportar').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const formato = btn.dataset.formato;
+                const contexto = btn.dataset.contexto;
+                if (contexto === 'Comparar') exportarComparacao(formato);
+                else if (formato === 'csv') exportarCSVDoContexto(contexto);
+                else if (formato === 'json') exportarJSONDoContexto(contexto);
+            });
+        });
+    }
+
+    function ligarCompartilhamento() {
+        $$('.btn-compartilhar').forEach((btn) => {
+            btn.addEventListener('click', copiarLink);
+        });
+    }
+
+    /* ---- SEGUIR POLÍTICOS (localStorage) ---- */
+    const CHAVE_SEGUIDOS = 'seuPolitico-seguidos';
+
+    function lerSeguidos() {
+        try { return JSON.parse(localStorage.getItem(CHAVE_SEGUIDOS)) || []; } catch (e) { return []; }
+    }
+
+    function salvarSeguidos(lista) {
+        try { localStorage.setItem(CHAVE_SEGUIDOS, JSON.stringify(lista)); } catch (e) { /* armazenamento indisponível */ }
+    }
+
+    function estaSeguido(tipo, id) {
+        return lerSeguidos().some((s) => s.tipo === tipo && String(s.id) === String(id));
+    }
+
+    function alternarSeguido(tipo, id, nome) {
+        const lista = lerSeguidos();
+        const indice = lista.findIndex((s) => s.tipo === tipo && String(s.id) === String(id));
+        if (indice >= 0) lista.splice(indice, 1);
+        else lista.push({ tipo, id: String(id), nome });
+        salvarSeguidos(lista);
+        return indice < 0; // true = passou a seguir
+    }
+
+    // Botão "Seguir" do perfil (chamado após renderizar o cabeçalho).
+    function ligarBotaoSeguir(raiz, tipo, id, nome) {
+        const btn = raiz.querySelector('.btn-seguir');
+        if (!btn) return;
+        const atualizar = () => {
+            const seguindo = estaSeguido(tipo, id);
+            btn.innerHTML = seguindo
+                ? '<i class="fa-solid fa-user-check" aria-hidden="true"></i> Seguindo'
+                : '<i class="fa-solid fa-user-plus" aria-hidden="true"></i> Seguir';
+            btn.classList.toggle('btn-ativo', seguindo);
+        };
+        btn.addEventListener('click', () => {
+            const agoraSeguindo = alternarSeguido(tipo, id, nome);
+            atualizar();
+            notificar(
+                agoraSeguindo ? `Você passou a acompanhar ${nome}.` : `Você deixou de acompanhar ${nome}.`,
+                agoraSeguindo ? 'fa-heart' : 'fa-user-minus'
+            );
+        });
+        atualizar();
+    }
+
+    async function carregarSeguidosHome() {
+        const container = $('#seguidosHome');
+        if (!container) return;
+        const seguidos = lerSeguidos().slice(0, 5);
+        if (!seguidos.length) { container.innerHTML = ''; return; }
+
+        container.innerHTML = `
+            <h3 class="section-title" style="margin-top:24px;"><i class="fa-solid fa-heart" aria-hidden="true"></i> Você acompanha</h3>
+            <div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando seus políticos...</p></div>`;
+
+        try {
+            const anoAtual = new Date().getFullYear();
+            const cards = [];
+            for (const s of seguidos) {
+                try {
+                    if (s.tipo === 'sen') {
+                        const d = await SeuPoliticoAPI.analiseSenador(s.id, anoAtual);
+                        const sen = d.senador || {};
+                        cards.push({
+                            nome: sen.nome || s.nome, partido: sen.partido, uf: sen.uf,
+                            cargo: 'Senador', total: d.total, link: `senador.html?id=${s.id}`,
+                        });
+                    } else {
+                        const d = await SeuPoliticoAPI.analiseDeputado(s.id, anoAtual);
+                        const dep = d.deputado || {};
+                        cards.push({
+                            nome: dep.nome || s.nome, partido: dep.partido, uf: dep.uf,
+                            cargo: 'Deputado Federal', total: d.total, link: `politico.html?id=${s.id}`,
+                        });
+                    }
+                } catch (e) { /* ignora seguido que falhou */ }
+            }
+            container.innerHTML = `
+                <h3 class="section-title" style="margin-top:24px;"><i class="fa-solid fa-heart" aria-hidden="true"></i> Você acompanha</h3>
+                <div class="card-grid">
+                    ${cards.length
+                        ? cards.map((c) => `
+                            <a href="${c.link}" class="card" style="text-decoration:none;color:inherit;">
+                                <div class="card-titulo">${escaparHtml(c.nome)}</div>
+                                <div class="perfil-dados" style="margin:6px 0 10px;">
+                                    <span class="badge badge-partido">${escaparHtml(c.partido || '—')}</span>
+                                    <span class="badge badge-uf">${escaparHtml(c.uf || '—')}</span>
+                                    <span class="badge badge-cargo">${escaparHtml(c.cargo || '')}</span>
+                                </div>
+                                <div class="card-valor">${MotorAlerta.fmtBRL(c.total)}</div>
+                                <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">Total gasto no ano</div>
+                            </a>`).join('')
+                        : '<p style="color:var(--text-muted);font-size:14px;">Não foi possível carregar os políticos em acompanhamento.</p>'}
+                </div>`;
+        } catch (erro) {
+            container.innerHTML = '';
+        }
     }
 
     /* ---- INICIALIZAÇÃO COMUM (menu + busca) ---- */
@@ -349,6 +698,9 @@
             ids.forEach((s) => { const el = $(s); if (el) el.textContent = '—'; });
             renderizarEstadosVazio($('#destaques'), 'erro', 'fa-triangle-exclamation', 'Não foi possível carregar os dados.');
         }
+
+        // Políticos que o cidadão acompanha (localStorage) — carrega em paralelo.
+        carregarSeguidosHome();
     }
 
     /* ======================================================================
@@ -363,8 +715,8 @@
         if (titulo) {
             const partes = [nome && `"${nome}"`, partido && `partido ${partido}`, uf && `UF ${uf}`].filter(Boolean);
             titulo.textContent = partes.length
-                ? `Parlamentares para ${partes.join(' · ')}`
-                : 'Parlamentares (última legislatura)';
+                ? `Deputados para ${partes.join(' · ')}`
+                : 'Deputados (última legislatura)';
         }
 
         const lista = $('#listaResultados');
@@ -375,11 +727,11 @@
             const listaDeputados = await buscarTodosDeputados({ nome, partido, uf });
 
             if (resumo) {
-                resumo.innerHTML = `<p class="page-subtitle">${listaDeputados.length} parlamentare${listaDeputados.length === 1 ? '' : 's'} encontrado${listaDeputados.length === 1 ? '' : 's'}. Os sinais apontados são neutros — investigue você mesmo.</p>`;
+                resumo.innerHTML = `<p class="page-subtitle">${listaDeputados.length} deputado${listaDeputados.length === 1 ? '' : 's'} encontrado${listaDeputados.length === 1 ? '' : 's'}. Os sinais apontados são neutros — investigue você mesmo.</p>`;
             }
 
             if (!listaDeputados.length) {
-                renderizarEstadosVazio(lista, 'estado-vazio', 'fa-user-slash', 'Nenhum parlamentar encontrado com esses critérios. Tente outro nome, partido ou estado.');
+                renderizarEstadosVazio(lista, 'estado-vazio', 'fa-user-slash', 'Nenhum deputado encontrado com esses critérios. Tente outro nome, partido ou estado.');
                 return;
             }
 
@@ -402,7 +754,7 @@
                         <a class="btn btn-sm" href="politico.html?id=${encodeURIComponent(d.id)}">
                             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Analisar
                         </a>
-                        <a class="btn btn-sm btn-outline" href="comparar.html?add=${encodeURIComponent(d.id)}">
+                        <a class="btn btn-sm btn-outline" href="comparar.html?add=dep:${encodeURIComponent(d.id)}">
                             <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar
                         </a>
                     </div>
@@ -488,6 +840,52 @@
                 });
             }
 
+            // Gráfico: gastos por partido.
+            const porPartido = (dados.porPartido || []).slice(0, 12);
+            if (porPartido.length) {
+                criarOuAtualizar('graficoPartido', {
+                    type: 'bar',
+                    data: {
+                        labels: porPartido.map((p) => p.partido),
+                        datasets: [{
+                            label: `Gasto em ${ano}`,
+                            data: porPartido.map((p) => p.valor),
+                            backgroundColor: coresPaleta[3],
+                            borderRadius: 4,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${MotorAlerta.fmtBRL(ctx.parsed.y)}` } },
+                        },
+                    },
+                });
+            }
+
+            // Gráfico: gastos por UF.
+            const porUf = (dados.porUf || []).slice(0, 20);
+            if (porUf.length) {
+                criarOuAtualizar('graficoUf', {
+                    type: 'bar',
+                    data: {
+                        labels: porUf.map((u) => u.uf),
+                        datasets: [{
+                            label: `Gasto em ${ano}`,
+                            data: porUf.map((u) => u.valor),
+                            backgroundColor: coresPaleta[6],
+                            borderRadius: 4,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${MotorAlerta.fmtBRL(ctx.parsed.y)}` } },
+                        },
+                    },
+                });
+            }
+
             // Tabela de fornecedores.
             const fornecedores = (dados.fornecedores || []).slice(0, 10);
             set('#corpoTopFornecedores', fornecedores.length
@@ -556,7 +954,14 @@
                             <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Ver página oficial na Câmara
                         </a>
                     </p>
+                    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-sm btn-outline btn-seguir" type="button">
+                            <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Seguir
+                        </button>
+                    </div>
                 </div>`;
+
+            ligarBotaoSeguir(cabecalho, 'dep', d.id, d.nome);
 
             // Indicadores.
             const set = (id, valor) => { const el = $(id); if (el) el.textContent = valor; };
@@ -567,6 +972,9 @@
 
             // Sinais do motor de suspeita.
             renderizarSinais(listaAlertas, dados.sinais);
+
+            // Maiores fornecedores no ano (top 5, neutro).
+            renderizarTopFornecedores($('#topFornecedoresPerfil'), dados.fornecedores, { total: dados.total });
 
             // Gráfico de categorias.
             const categorias = (dados.categorias || []).slice(0, 10);
@@ -615,6 +1023,15 @@
             popularTiposFiltro($('#filtroTipoDeputado'), perfilDespesas);
             renderizarTabelaDeputado();
             ligarFiltrosTabela('Deputado', renderizarTabelaDeputado);
+
+            // Votações em projetos de lei (mesmo ano de referência).
+            carregarVotacoes(id, anoSelecionado);
+
+            // Presença em Plenário (mesmo ano de referência).
+            carregarPresencaDeputado(id, anoSelecionado);
+
+            // Discursos em Plenário (mesmo ano de referência).
+            carregarDiscursosDeputado(id, anoSelecionado);
         } catch (erro) {
             renderizarEstadosVazio(cabecalho, 'erro', 'fa-triangle-exclamation', erro.message);
             notificar(erro.message, 'fa-triangle-exclamation');
@@ -648,6 +1065,377 @@
         corpo.innerHTML = filtradas.length
             ? filtradas.map(linhaDespesa).join('')
             : '<tr><td colspan="6" class="estado-vazio">Nenhuma despesa encontrada com os filtros aplicados.</td></tr>';
+    }
+
+    /* ======================================================================
+       VOTAÇÕES EM PROJETOS DE LEI (Câmara)
+       ====================================================================== */
+    async function carregarVotacoes(id, ano, pagina = 1) {
+        const container = $('#listaVotacoes');
+        if (!container) return;
+        try {
+            const dados = await SeuPoliticoAPI.obterVotacoesDeputado(id, { ano, pagina });
+            votacoesAtuais = dados.dados || [];
+            votacaoPagina = pagina;
+            renderizarVotacoes(container, id, ano, dados.links || {});
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation',
+                `${erro.message} As votações podem não estar disponíveis para este parlamentar.`);
+        }
+    }
+
+    function renderizarVotacoes(container, id, ano, links) {
+        const pagina = links.pagina || 1;
+        const ultima = links.ultima || 1;
+
+        container.innerHTML = `
+            <div class="tabela-wrapper">
+                <table class="tabela">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Proposição</th>
+                            <th>Órgão</th>
+                            <th>Voto</th>
+                            <th>Detalhe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${votacoesAtuais.length
+                            ? votacoesAtuais.map((v) => `
+                                <tr>
+                                    <td>${escaparHtml(v.data || '—')}</td>
+                                    <td style="white-space:normal;max-width:340px;">
+                                        <strong>${escaparHtml(v.titulo || '—')}</strong>
+                                        ${v.ementa ? `<div style="font-size:12px;color:var(--text-muted);">${escaparHtml(v.ementa)}</div>` : ''}
+                                    </td>
+                                    <td>${escaparHtml(v.orgao || '—')}</td>
+                                    <td><span class="badge badge-partido">${escaparHtml(v.voto || '—')}</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline btn-detalhe-votacao" type="button" data-id="${escaparHtml(v.idVotacao)}">
+                                            <i class="fa-solid fa-eye" aria-hidden="true"></i> Detalhes
+                                        </button>
+                                    </td>
+                                </tr>`).join('')
+                            : '<tr><td colspan="5" class="estado-vazio">Nenhuma votação encontrada para o ano selecionado.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+                ${pagina > 1 ? `<button class="btn btn-sm btn-outline btn-pag-votacao" type="button" data-pagina="${pagina - 1}">← Anterior</button>` : ''}
+                <span style="font-size:13px;color:var(--text-muted);">Página ${pagina} de ${ultima}</span>
+                ${pagina < ultima ? `<button class="btn btn-sm btn-outline btn-pag-votacao" type="button" data-pagina="${pagina + 1}">Próxima →</button>` : ''}
+            </div>
+            <div id="detalheVotacao" style="margin-top:14px;"></div>`;
+
+        container.querySelectorAll('.btn-pag-votacao').forEach((btn) => {
+            btn.addEventListener('click', () => carregarVotacoes(id, ano, Number(btn.dataset.pagina)));
+        });
+        container.querySelectorAll('.btn-detalhe-votacao').forEach((btn) => {
+            btn.addEventListener('click', () => carregarDetalheVotacao(btn.dataset.id));
+        });
+    }
+
+    async function carregarDetalheVotacao(idVotacao) {
+        const caixa = $('#detalheVotacao');
+        if (!caixa) return;
+        caixa.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando detalhes da votação...</p></div>';
+        try {
+            const dados = await SeuPoliticoAPI.obterDetalheVotacao(idVotacao);
+            const resultado = dados.resultado || {};
+            const votos = dados.votos || [];
+            caixa.innerHTML = `
+                <div class="card">
+                    <div class="card-titulo">${escaparHtml(dados.titulo || 'Votação')}</div>
+                    ${dados.ementa ? `<p style="color:var(--text-secondary);font-size:14px;margin-top:4px;">${escaparHtml(dados.ementa)}</p>` : ''}
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+                        <span class="badge badge-uf">Sim: ${escaparHtml(resultado.sim ?? '—')}</span>
+                        <span class="badge badge-partido">Não: ${escaparHtml(resultado.nao ?? '—')}</span>
+                        <span class="badge badge-cargo">Abstenções: ${escaparHtml(resultado.abstencoes ?? '—')}</span>
+                        ${resultado.totalVotos ? `<span class="badge badge-uf">Total: ${escaparHtml(resultado.totalVotos)}</span>` : ''}
+                    </div>
+                    <div class="tabela-wrapper" style="margin-top:14px;">
+                        <table class="tabela">
+                            <thead><tr><th>Deputado</th><th>Partido</th><th>UF</th><th>Voto</th></tr></thead>
+                            <tbody>
+                                ${votos.length
+                                    ? votos.map((v) => `
+                                        <tr>
+                                            <td>${escaparHtml(v.deputado?.nome || '—')}</td>
+                                            <td>${escaparHtml(v.deputado?.partido || '—')}</td>
+                                            <td>${escaparHtml(v.deputado?.uf || '—')}</td>
+                                            <td>${escaparHtml(v.voto || '—')}</td>
+                                        </tr>`).join('')
+                                    : '<tr><td colspan="4" class="estado-vazio">Detalhes de votos indisponíveis.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+        } catch (erro) {
+            caixa.innerHTML = `<div class="erro"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><p>${escaparHtml(erro.message)}</p></div>`;
+        }
+    }
+
+    /* ======================================================================
+       VOTAÇÕES DO SENADOR (Plenário — Senado Federal)
+       ====================================================================== */
+    async function carregarVotacoesSenador(id, ano) {
+        const container = $('#listaVotacoesSenador');
+        if (!container) return;
+        try {
+            const dados = await SeuPoliticoAPI.obterVotacoesSenador(id, { ano });
+            votacoesSenadorAtuais = dados.dados || [];
+            renderizarVotacoesSenador(container, ano);
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation',
+                `${erro.message} As votações podem não estar disponíveis para este senador.`);
+        }
+    }
+
+    function renderizarVotacoesSenador(container, ano) {
+        const rows = votacoesSenadorAtuais;
+        container.innerHTML = `
+            <div class="tabela-wrapper">
+                <table class="tabela">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Proposição</th>
+                            <th>Votação</th>
+                            <th>Voto</th>
+                            <th>Detalhe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.length
+                            ? rows.map((v) => `
+                                <tr>
+                                    <td>${escaparHtml(v.data || '—')}</td>
+                                    <td style="white-space:normal;max-width:140px;"><strong>${escaparHtml(v.titulo || '—')}</strong></td>
+                                    <td style="white-space:normal;max-width:340px;">${escaparHtml(v.ementa || '—')}</td>
+                                    <td><span class="badge badge-partido">${escaparHtml(v.voto || '—')}</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline btn-detalhe-votacao-senador" type="button" data-sessao="${escaparHtml(v.sessao)}" data-id="${escaparHtml(v.idVotacao)}">
+                                            <i class="fa-solid fa-eye" aria-hidden="true"></i> Detalhes
+                                        </button>
+                                    </td>
+                                </tr>`).join('')
+                            : '<tr><td colspan="5" class="estado-vazio">Nenhuma votação encontrada para o ano selecionado.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+            <div id="detalheVotacaoSenador" style="margin-top:14px;"></div>`;
+
+        container.querySelectorAll('.btn-detalhe-votacao-senador').forEach((btn) => {
+            btn.addEventListener('click', () => carregarDetalheVotacaoSenado(btn.dataset.sessao, btn.dataset.id));
+        });
+    }
+
+    async function carregarDetalheVotacaoSenado(sessao, idVotacao) {
+        const caixa = $('#detalheVotacaoSenador');
+        if (!caixa) return;
+        caixa.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando detalhes da votação...</p></div>';
+        try {
+            const dados = await SeuPoliticoAPI.obterDetalheVotacaoSenado(sessao, idVotacao);
+            const r = dados.resultado || {};
+            const votos = dados.votos || [];
+            caixa.innerHTML = `
+                <div class="card">
+                    <div class="card-titulo">${escaparHtml(dados.titulo || 'Votação')}</div>
+                    ${dados.ementa ? `<p style="color:var(--text-secondary);font-size:14px;margin-top:4px;">${escaparHtml(dados.ementa)}</p>` : ''}
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+                        <span class="badge badge-uf">Sim: ${escaparHtml(r.sim ?? '—')}</span>
+                        <span class="badge badge-partido">Não: ${escaparHtml(r.nao ?? '—')}</span>
+                        <span class="badge badge-cargo">Abstenções: ${escaparHtml(r.abstencoes ?? '—')}</span>
+                        ${r.totalVotos ? `<span class="badge badge-uf">Total: ${escaparHtml(r.totalVotos)}</span>` : ''}
+                    </div>
+                    <div class="tabela-wrapper" style="margin-top:14px;">
+                        <table class="tabela">
+                            <thead><tr><th>Senador</th><th>Partido</th><th>UF</th><th>Voto</th></tr></thead>
+                            <tbody>
+                                ${votos.length
+                                    ? votos.map((v) => `
+                                        <tr>
+                                            <td>${escaparHtml(v.senador?.nome || '—')}</td>
+                                            <td>${escaparHtml(v.senador?.partido || '—')}</td>
+                                            <td>${escaparHtml(v.senador?.uf || '—')}</td>
+                                            <td>${escaparHtml(v.voto || '—')}</td>
+                                        </tr>`).join('')
+                                    : '<tr><td colspan="4" class="estado-vazio">Detalhes de votos indisponíveis.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+        } catch (erro) {
+            caixa.innerHTML = `<div class="erro"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><p>${escaparHtml(erro.message)}</p></div>`;
+        }
+    }
+
+    /* ======================================================================
+       PRESENÇA / FREQUÊNCIA (deputados e senadores)
+       ====================================================================== */
+    function renderizarFrequencia(container, dados) {
+        if (!container) return;
+        if (!dados || dados.presencas === undefined) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation', 'Dados de presença indisponíveis.');
+            return;
+        }
+
+        const totalDias = dados.totalSessoes ?? dados.totalVotacoes ?? null;
+        const rotuloTotal = dados.totalSessoes != null ? 'dias de sessão' : 'votações registradas';
+
+        container.innerHTML = `
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-titulo">Presenças</div>
+                    <div class="card-valor" style="color:var(--alerta-comparacao);">${dados.presencas}</div>
+                </div>
+                <div class="card">
+                    <div class="card-titulo">Faltas justificadas</div>
+                    <div class="card-valor" style="color:var(--alerta-voce-olhar);">${dados.faltasJustificadas}</div>
+                </div>
+                <div class="card">
+                    <div class="card-titulo">Faltas injustificadas</div>
+                    <div class="card-valor" style="color:#b23b3b;">${dados.faltasInjustificadas}</div>
+                </div>
+                ${totalDias != null ? `
+                <div class="card">
+                    <div class="card-titulo">Total de ${rotuloTotal}</div>
+                    <div class="card-valor">${totalDias}</div>
+                </div>` : ''}
+            </div>
+            <div class="card" style="margin-top:16px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;">
+                <div style="min-width:220px;max-width:280px;flex:1;">
+                    <canvas id="graficoPresenca" aria-label="Gráfico de presença e faltas" role="img"></canvas>
+                </div>
+                <div style="flex:1;min-width:220px;font-size:13px;color:var(--text-secondary);line-height:1.8;">
+                    <strong>Taxa de presença:</strong> ${MotorAlerta.fmtNumero(dados.taxaPresenca ?? 0, 1)}%<br>
+                    <span>${escaparHtml(dados.fonte || '')}</span><br>
+                    <a href="${escaparHtml(dados.urlFonte || '#')}" target="_blank" rel="noopener" class="btn btn-sm btn-outline" style="margin-top:8px;">
+                        <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Verificar na fonte oficial
+                    </a>
+                </div>
+            </div>`;
+
+        criarOuAtualizar('graficoPresenca', {
+            type: 'doughnut',
+            data: {
+                labels: ['Presenças', 'Faltas justificadas', 'Faltas injustificadas'],
+                datasets: [{
+                    data: [dados.presencas, dados.faltasJustificadas, dados.faltasInjustificadas],
+                    backgroundColor: [coresPaleta[2], coresPaleta[3], coresPaleta[4]],
+                    borderWidth: 0,
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { family: 'Segoe UI' } } },
+                    tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed}` } },
+                },
+            },
+        });
+    }
+
+    async function carregarPresencaDeputado(id, ano) {
+        const container = $('#conteudoPresencaDeputado');
+        if (!container) return;
+        try {
+            const dados = await SeuPoliticoAPI.obterFrequenciaDeputado(id, ano);
+            renderizarFrequencia(container, dados);
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation',
+                `${erro.message} A presença pode não estar disponível para este parlamentar.`);
+        }
+    }
+
+    async function carregarPresencaSenador(id, ano) {
+        const container = $('#conteudoPresencaSenador');
+        if (!container) return;
+        try {
+            const dados = await SeuPoliticoAPI.obterFrequenciaSenador(id, ano);
+            renderizarFrequencia(container, dados);
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation',
+                `${erro.message} A presença pode não estar disponível para este senador.`);
+        }
+    }
+
+    /* ======================================================================
+       DISCURSOS / PRONUNCIAMENTOS
+       ====================================================================== */
+    function renderizarDiscursos(container, dados) {
+        if (!container) return;
+        const lista = dados && Array.isArray(dados.dados) ? dados.dados : [];
+        if (!lista.length) {
+            renderizarEstadosVazio(container, 'estado-vazio', 'fa-microphone-lines', 'Nenhum pronunciamento encontrado para o ano selecionado.');
+            return;
+        }
+        container.innerHTML = `
+            <div class="tabela-wrapper">
+                <table class="tabela">
+                    <thead><tr><th>Data</th><th>Tipo</th><th>Resumo</th><th>Texto</th></tr></thead>
+                    <tbody>
+                        ${lista.map((d, i) => {
+                            const data = String(d.dataHoraInicio || '').slice(0, 10);
+                            const temConteudo = d.transcricao || d.urlTexto || d.urlAudio || d.urlVideo;
+                            return `
+                            <tr>
+                                <td>${escaparHtml(data || '—')}</td>
+                                <td>${escaparHtml(d.tipoDiscurso || '—')}</td>
+                                <td style="white-space:normal;max-width:380px;">${escaparHtml(d.sumario || '—')}</td>
+                                <td>
+                                    ${temConteudo ? `
+                                        <button class="btn btn-sm btn-outline btn-discurso" type="button" data-indice="${i}">
+                                            <i class="fa-solid fa-comment" aria-hidden="true"></i> Ler
+                                        </button>` : '<span class="texto-muted">—</span>'}
+                                </td>
+                            </tr>
+                            ${temConteudo ? `
+                            <tr class="linha-discurso" id="discurso-${i}" style="display:none;">
+                                <td colspan="4" style="white-space:normal;background:var(--bg-main);">
+                                    ${d.transcricao ? `<p style="font-size:13px;line-height:1.7;">${escaparHtml(d.transcricao)}</p>` : ''}
+                                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                                        ${d.urlTexto ? `<a class="btn btn-sm" href="${escaparHtml(d.urlTexto)}" target="_blank" rel="noopener"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Texto completo</a>` : ''}
+                                        ${d.urlAudio ? `<a class="btn btn-sm" href="${escaparHtml(d.urlAudio)}" target="_blank" rel="noopener"><i class="fa-solid fa-volume-high" aria-hidden="true"></i> Áudio</a>` : ''}
+                                        ${d.urlVideo ? `<a class="btn btn-sm" href="${escaparHtml(d.urlVideo)}" target="_blank" rel="noopener"><i class="fa-solid fa-video" aria-hidden="true"></i> Vídeo</a>` : ''}
+                                    </div>
+                                </td>
+                            </tr>` : ''}`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        container.querySelectorAll('.btn-discurso').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const linha = document.getElementById(`discurso-${btn.dataset.indice}`);
+                if (linha) linha.style.display = linha.style.display === 'none' ? '' : 'none';
+            });
+        });
+    }
+
+    async function carregarDiscursosDeputado(id, ano) {
+        const container = $('#listaDiscursosDeputado');
+        if (!container) return;
+        try {
+            const dados = await SeuPoliticoAPI.obterDiscursosDeputado(id, ano);
+            renderizarDiscursos(container, dados);
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation',
+                `${erro.message} Os pronunciamentos podem não estar disponíveis para este deputado.`);
+        }
+    }
+
+    async function carregarDiscursosSenador(id, ano) {
+        const container = $('#listaDiscursosSenador');
+        if (!container) return;
+        try {
+            const dados = await SeuPoliticoAPI.obterDiscursosSenador(id, ano);
+            renderizarDiscursos(container, dados);
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation',
+                `${erro.message} Os pronunciamentos podem não estar disponíveis para este senador.`);
+        }
     }
 
     /* ======================================================================
@@ -694,6 +1482,9 @@
                     <div class="politico-meta">
                         <a class="btn btn-sm" href="senador.html?id=${encodeURIComponent(s.id)}">
                             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Analisar
+                        </a>
+                        <a class="btn btn-sm btn-outline" href="comparar.html?add=sen:${encodeURIComponent(s.id)}">
+                            <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar
                         </a>
                     </div>
                 </article>`).join('');
@@ -746,7 +1537,14 @@
                             <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Ver página oficial no Senado
                         </a>
                     </p>
+                    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-sm btn-outline btn-seguir" type="button">
+                            <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Seguir
+                        </button>
+                    </div>
                 </div>`;
+
+            ligarBotaoSeguir(cabecalho, 'sen', s.id, s.nome);
 
             const set = (idEl, valor) => { const el = $(idEl); if (el) el.textContent = valor; };
             set('#senadorTotal', MotorAlerta.fmtBRL(dados.total));
@@ -755,6 +1553,9 @@
             set('#senadorMaior', MotorAlerta.fmtBRL(dados.maior));
 
             renderizarSinais(listaAlertas, dados.sinais);
+
+            // Maiores fornecedores no ano (top 5, neutro).
+            renderizarTopFornecedores($('#topFornecedoresSenador'), dados.fornecedores, { total: dados.total });
 
             const categorias = (dados.categorias || []).slice(0, 10);
             if (categorias.length) {
@@ -789,6 +1590,15 @@
             popularTiposFiltro($('#filtroTipoSenador'), senadorDespesas);
             renderizarTabelaSenador();
             ligarFiltrosTabela('Senador', renderizarTabelaSenador);
+
+            // Presença em votações nominais (mesmo ano de referência).
+            carregarPresencaSenador(id, anoSelecionado);
+
+            // Votações em projetos de lei (mesmo ano de referência).
+            carregarVotacoesSenador(id, anoSelecionado);
+
+            // Discursos (mesmo ano de referência).
+            carregarDiscursosSenador(id, anoSelecionado);
         } catch (erro) {
             renderizarEstadosVazio(cabecalho, 'erro', 'fa-triangle-exclamation', erro.message);
             notificar(erro.message, 'fa-triangle-exclamation');
@@ -1174,6 +1984,9 @@
 
             renderizarSinais($('#sinaisContratosPresidente'), dados.sinais);
 
+            // Maiores fornecedores de contratos no ano (top 5, neutro).
+            renderizarTopFornecedores($('#topFornecedoresPresidente'), dados.topFornecedores, { total: dados.totalFinal });
+
             const porModalidade = dados.porModalidade || [];
             if (porModalidade.length) {
                 criarOuAtualizar('graficoContratoPresidente', {
@@ -1226,13 +2039,23 @@
     }
 
     function iniciarPresidente() {
+        const sel = $('#seletorAnoPresidente');
+        const anoParam = Number(lerParametro('ano'));
+        if (sel && anoParam) sel.value = String(anoParam);
+        if (sel) {
+            sel.addEventListener('change', () => {
+                const url = new URL(window.location);
+                url.searchParams.set('ano', sel.value);
+                history.replaceState(null, '', url);
+                carregarGastosPresidente();
+                carregarContratosPresidente();
+            });
+        }
         carregarPresidente();
         carregarGastosPresidente();
         carregarContratosPresidente();
         const botao = $('#botaoAtualizarGastosPresidente');
         if (botao) botao.addEventListener('click', () => { carregarGastosPresidente(); carregarContratosPresidente(); });
-        const sel = $('#seletorAnoPresidente');
-        if (sel) sel.addEventListener('change', () => { carregarGastosPresidente(); carregarContratosPresidente(); });
     }
 
     /* ======================================================================
@@ -1315,21 +2138,85 @@
        COMPARAÇÃO
        ====================================================================== */
     let deputadosCache = [];
+    let senadoresCache = [];
+
+    function sincronizarCompararUrl() {
+        const url = new URL(window.location);
+        const set = (chave, valor) => {
+            if (valor) url.searchParams.set(chave, valor); else url.searchParams.delete(chave);
+        };
+        set('dep1', $('#seletorDep1')?.value || '');
+        set('dep2', $('#seletorDep2')?.value || '');
+        set('cargo1', $('#cargoDep1')?.value || '');
+        set('cargo2', $('#cargoDep2')?.value || '');
+        set('ano', $('#seletorAnoComparar')?.value || '');
+        history.replaceState(null, '', url);
+    }
 
     async function popularSeletoresComparar() {
         const sel1 = $('#seletorDep1');
         const sel2 = $('#seletorDep2');
+        const cargo1 = $('#cargoDep1');
+        const cargo2 = $('#cargoDep2');
+        const anoSel = $('#seletorAnoComparar');
         if (!sel1 || !sel2) return;
 
+        const anoParam = Number(lerParametro('ano'));
+        if (anoSel && anoParam) anoSel.value = String(anoParam);
+
+        const preencherSelect = (sel, dados) => {
+            const valorAtual = sel.value;
+            sel.innerHTML = '<option value="">Selecione...</option>';
+            dados.forEach((d) => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = `${d.nome} (${d.partido || '—'}-${d.uf || '—'})`;
+                sel.appendChild(opt);
+            });
+            return valorAtual;
+        };
+
         try {
-            deputadosCache = await buscarTodosDeputados({});
-            const options = deputadosCache.map((d) =>
-                `<option value="${d.id}">${escaparHtml(d.nome)} (${escaparHtml(d.partido || '—')}-${escaparHtml(d.uf || '—')})</option>`).join('');
-            sel1.insertAdjacentHTML('beforeend', options);
-            sel2.insertAdjacentHTML('beforeend', options);
+            if (!deputadosCache.length) deputadosCache = await buscarTodosDeputados({});
+            if (!senadoresCache.length) {
+                const { dados: senadores } = await SeuPoliticoAPI.buscarSenadores({});
+                senadoresCache = senadores || [];
+            }
+
+            const depOpts = deputadosCache.map((d) => ({ id: `dep:${d.id}`, nome: d.nome, partido: d.partido, uf: d.uf }));
+            const senOpts = senadoresCache.map((s) => ({ id: `sen:${s.id}`, nome: s.nome, partido: s.partido, uf: s.uf }));
+
+            const preencherPorCargo = (cargo, sel) => {
+                preencherSelect(sel, cargo === 'sen' ? senOpts : depOpts);
+            };
+
+            const aplicarUrl = () => {
+                const dep1 = lerParametro('dep1');
+                const dep2 = lerParametro('dep2');
+                const cargo1Param = lerParametro('cargo1');
+                const cargo2Param = lerParametro('cargo2');
+                if (cargo1 && cargo1Param) cargo1.value = cargo1Param;
+                if (cargo2 && cargo2Param) cargo2.value = cargo2Param;
+                preencherPorCargo(cargo1?.value || 'dep', sel1);
+                preencherPorCargo(cargo2?.value || 'dep', sel2);
+                if (dep1) sel1.value = dep1;
+                if (dep2) sel2.value = dep2;
+            };
+
+            if (cargo1) cargo1.addEventListener('change', () => { preencherPorCargo(cargo1.value, sel1); sincronizarCompararUrl(); });
+            if (cargo2) cargo2.addEventListener('change', () => { preencherPorCargo(cargo2.value, sel2); sincronizarCompararUrl(); });
+            [sel1, sel2].forEach((sel) => sel.addEventListener('change', sincronizarCompararUrl));
+            if (anoSel) anoSel.addEventListener('change', sincronizarCompararUrl);
+
+            aplicarUrl();
 
             const add = lerParametro('add');
-            if (add) sel1.value = add;
+            if (add) {
+                const tipoAdd = add.includes(':') ? add.split(':')[0] : 'dep';
+                if (cargo1) cargo1.value = tipoAdd;
+                preencherPorCargo(tipoAdd, sel1);
+                sel1.value = add;
+            }
         } catch (erro) {
             notificar(erro.message, 'fa-triangle-exclamation');
         }
@@ -1352,10 +2239,17 @@
 
         try {
             const dados = await SeuPoliticoAPI.analiseComparar(ids, ano);
+            comparacaoAtual = dados;
             const lista = dados.deputados || [];
 
             // Sinais comparativos.
             const sinais = MotorAlerta.comparar(lista.map((d) => ({ nome: d.nome, total: d.total })));
+
+            const linkPerfil = (d) => {
+                const idPuro = String(d.id).slice(4);
+                const pagina = String(d.id).startsWith('sen:') ? 'senador.html' : 'politico.html';
+                return `${pagina}?id=${encodeURIComponent(idPuro)}`;
+            };
 
             container.innerHTML = `
                 <h3 class="section-title"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparação — ${ano}</h3>
@@ -1367,13 +2261,14 @@
                             <div class="perfil-dados" style="margin:6px 0 10px;">
                                 <span class="badge badge-partido">${escaparHtml(d.partido || '—')}</span>
                                 <span class="badge badge-uf">${escaparHtml(d.uf || '—')}</span>
+                                <span class="badge badge-cargo">${escaparHtml(d.cargo || '—')}</span>
                             </div>
                             <div class="card-valor">${MotorAlerta.fmtBRL(d.total)}</div>
                             <div style="margin-top:6px;font-size:13px;color:var(--text-secondary);">
                                 Média mensal: ${MotorAlerta.fmtBRL(d.media)}<br>
                                 Principal categoria: ${escaparHtml(d.categoriaPrincipal || '—')}
                             </div>
-                            <a class="btn btn-sm btn-outline" style="margin-top:12px;" href="politico.html?id=${d.id}">Ver perfil</a>
+                            <a class="btn btn-sm btn-outline" style="margin-top:12px;" href="${linkPerfil(d)}">Ver perfil</a>
                         </div>`).join('')}
                 </div>
                 <div class="chart-box" style="margin-top:18px;">
@@ -1420,6 +2315,142 @@
     }
 
     /* ======================================================================
+       VOTAÇÃO POR PROPOSIÇÃO (votacao.html)
+       ====================================================================== */
+    async function buscarProposicao() {
+        const campo = $('#campoProposicao');
+        const container = $('#resultadoProposicao');
+        if (!campo || !container) return;
+        const texto = (campo.value || '').trim();
+        const m = texto.match(/^([A-Z]{1,6})\s*(\d+)\s*\/\s*(\d{4})$/i);
+        if (!m) {
+            notificar('Formato: sigla número/ano — ex.: PL 1234/2025', 'fa-hand-pointer');
+            return;
+        }
+        const [, siglaTipo, numero, ano] = m;
+        container.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Buscando proposição...</p></div>';
+        try {
+            const prop = await SeuPoliticoAPI.buscarProposicao(siglaTipo.toUpperCase(), numero, ano);
+            const votacoes = await SeuPoliticoAPI.obterVotacoesProposicao(prop.id);
+            renderizarProposicao(container, prop, votacoes.dados || []);
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation', erro.message);
+        }
+    }
+
+    function renderizarProposicao(container, prop, votacoes) {
+        container.innerHTML = `
+            <div class="card">
+                <div class="card-titulo">${escaparHtml(prop.sigla || '')}</div>
+                <p style="color:var(--text-secondary);font-size:14px;">${escaparHtml(prop.ementa || '—')}</p>
+                <div class="perfil-dados" style="margin-top:8px;">
+                    ${prop.autor ? `<span><i class="fa-solid fa-user-pen" aria-hidden="true"></i> ${escaparHtml(prop.autor)}</span>` : ''}
+                    <span><i class="fa-solid fa-calendar" aria-hidden="true"></i> ${escaparHtml((prop.dataApresentacao || '').slice(0, 10))}</span>
+                </div>
+            </div>
+            <h3 class="section-title" style="margin-top:20px;"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</h3>
+            ${votacoes.length ? `
+                <div class="tabela-wrapper">
+                    <table class="tabela">
+                        <thead><tr><th>Data</th><th>Órgão</th><th>Votação</th><th>Placar</th></tr></thead>
+                        <tbody>
+                            ${votacoes.map((v) => `
+                                <tr>
+                                    <td>${escaparHtml(v.data || '—')}</td>
+                                    <td>${escaparHtml(v.orgao || '—')}</td>
+                                    <td style="white-space:normal;max-width:380px;">${escaparHtml(v.descricao || '—')}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline btn-votos-proposicao" type="button" data-id="${escaparHtml(v.idVotacao)}">
+                                            <i class="fa-solid fa-eye" aria-hidden="true"></i> Ver votos
+                                        </button>
+                                    </td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="detalheProposicao" style="margin-top:14px;"></div>`
+            : '<div class="estado-vazio"><i class="fa-solid fa-inbox" aria-hidden="true"></i><p>Esta proposição ainda não teve votações registradas.</p></div>'}`;
+
+        container.querySelectorAll('.btn-votos-proposicao').forEach((btn) => {
+            btn.addEventListener('click', () => carregarVotosProposicao(btn.dataset.id));
+        });
+    }
+
+    async function carregarVotosProposicao(idVotacao) {
+        const caixa = $('#detalheProposicao');
+        if (!caixa) return;
+        caixa.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando votos...</p></div>';
+        try {
+            const dados = await SeuPoliticoAPI.obterDetalheVotacao(idVotacao);
+            const r = dados.resultado || {};
+            const votos = dados.votos || [];
+            const ufUsuario = lerUfUsuario();
+            caixa.innerHTML = `
+                <div class="card">
+                    <div class="card-titulo">${escaparHtml(dados.titulo || 'Votação')}</div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+                        <span class="badge badge-uf">Sim: ${escaparHtml(r.sim ?? '—')}</span>
+                        <span class="badge badge-partido">Não: ${escaparHtml(r.nao ?? '—')}</span>
+                        <span class="badge badge-cargo">Abstenções: ${escaparHtml(r.abstencoes ?? '—')}</span>
+                        ${r.totalVotos ? `<span class="badge badge-uf">Total: ${escaparHtml(r.totalVotos)}</span>` : ''}
+                    </div>
+                    <div class="tabela-wrapper" style="margin-top:12px;">
+                        <table class="tabela">
+                            <thead><tr><th>Deputado</th><th>Partido</th><th>UF</th><th>Voto</th></tr></thead>
+                            <tbody>
+                                ${votos.length
+                                    ? votos.map((v) => `
+                                        <tr${v.deputado?.uf === ufUsuario ? ' style="background:var(--hover-bg);"' : ''}>
+                                            <td>${escaparHtml(v.deputado?.nome || '—')}</td>
+                                            <td>${escaparHtml(v.deputado?.partido || '—')}</td>
+                                            <td>${escaparHtml(v.deputado?.uf || '—')}</td>
+                                            <td>${escaparHtml(v.voto || '—')}</td>
+                                        </tr>`).join('')
+                                    : '<tr><td colspan="4" class="estado-vazio">Sem votos individuais disponíveis.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                    ${ufUsuario ? `<p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Linhas destacadas: deputados de <strong>${ufUsuario}</strong>.</p>` : ''}
+                </div>`;
+        } catch (erro) {
+            caixa.innerHTML = `<div class="erro"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><p>${escaparHtml(erro.message)}</p></div>`;
+        }
+    }
+
+    function lerUfUsuario() {
+        try { return localStorage.getItem('seuPolitico-uf') || ''; } catch (e) { return ''; }
+    }
+
+    function iniciarVotacaoProposicao() {
+        const form = $('#formProposicao');
+        if (form) form.addEventListener('submit', (e) => { e.preventDefault(); buscarProposicao(); });
+
+        const selUf = $('#seletorUfUsuario');
+        if (selUf) {
+            UFs.forEach((uf) => {
+                const o = document.createElement('option');
+                o.value = uf;
+                o.textContent = uf;
+                selUf.appendChild(o);
+            });
+            try {
+                const t = localStorage.getItem('seuPolitico-uf');
+                if (t) selUf.value = t;
+            } catch (e) { /* armazenamento indisponível */ }
+            selUf.addEventListener('change', () => {
+                try { localStorage.setItem('seuPolitico-uf', selUf.value); } catch (e) { /* ignore */ }
+            });
+        }
+
+        const q = lerParametro('q');
+        if (q) {
+            const campo = $('#campoProposicao');
+            if (campo) campo.value = q;
+            buscarProposicao();
+        }
+    }
+
+    /* ======================================================================
        ROTEADOR DE PÁGINA
        ====================================================================== */
     function rotearPagina() {
@@ -1433,6 +2464,7 @@
         else if ($('#seletorOrgaoExecutivo')) iniciarExecutivo();
         else if ($('#perfilPresidente')) iniciarPresidente();
         else if ($('#listaCandidatos')) carregarCandidatos();
+        else if ($('#formProposicao')) iniciarVotacaoProposicao();
     }
 
     /* ---- ARRANQUE ---- */
@@ -1440,6 +2472,8 @@
         iniciarMenuResponsivo();
         iniciarBusca();
         popularFiltros();
+        ligarExportacao();
+        ligarCompartilhamento();
         rotearPagina();
     });
 })();

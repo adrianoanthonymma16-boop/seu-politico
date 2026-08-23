@@ -32,6 +32,60 @@
     --sidebar-width: 220px;
 }
 
+/* ---- TEMA ESCURO (ativa via [data-tema="escuro"] no <html>) ---- */
+[data-tema="escuro"] {
+    --bg-main: #16181c;
+    --bg-surface: #21242a;
+    --bg-sidebar: #1c1f24;
+    --border-light: #33373e;
+    --border-medium: #3e434c;
+    --text-primary: #e8eaed;
+    --text-secondary: #b3bac2;
+    --text-muted: #8a919b;
+    --hover-bg: #2c3037;
+    --primary: #4d9fff;
+    --primary-hover: #7ab4ff;
+
+    --alerta-texto: #f0c674;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+[data-tema="escuro"] #Pesquisar input[type="text"]:focus,
+[data-tema="escuro"] .search-wrapper input[type="text"]:focus {
+    background-color: var(--bg-surface);
+    box-shadow: 0 0 8px rgba(77, 159, 255, 0.35);
+}
+
+[data-tema="escuro"] .badge-uf {
+    background-color: #1d3350;
+}
+
+[data-tema="escuro"] .badge-cargo {
+    background-color: #2a2e35;
+}
+
+[data-tema="escuro"] .sinal.sinal-comparacao .sinal-titulo {
+    color: #7cc76a;
+}
+
+[data-tema="escuro"] .tabela .valor-positivo {
+    color: #e08080;
+}
+
+[data-tema="escuro"] .tabela .valor-negativo {
+    color: #5cb85c;
+}
+
+[data-tema="escuro"] .politico-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+[data-tema="escuro"] .notificacao {
+    background-color: #2c3037;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+}
+
 /* ---- RESET / BASE ---- */
 * {
     margin: 0;
@@ -130,6 +184,28 @@ header section {
 .logo-site strong {
     color: var(--primary);
     font-weight: normal;
+}
+
+/* Botão de alternância de tema (header) */
+.botao-tema {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 16px;
+    transition: border-color 0.2s, color 0.2s, background-color 0.2s;
+    flex-shrink: 0;
+}
+
+.botao-tema:hover {
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 /* ---- BUSCA (ao lado do logo) ---- */
@@ -427,6 +503,19 @@ h1, h2, h3, h4 {
 .btn-sm {
     padding: 6px 12px;
     font-size: 13px;
+}
+
+/* Botão no estado "ativo" (ex.: seguindo um político) */
+.btn-ativo {
+    background-color: var(--alerta-comparacao);
+    border-color: var(--alerta-comparacao);
+    color: #ffffff;
+}
+
+.btn-ativo:hover {
+    background-color: #4a9e45;
+    border-color: #4a9e45;
+    color: #ffffff;
 }
 
 /* Alertas (sinais do motor de suspeita) */

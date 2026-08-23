@@ -10,6 +10,7 @@
 
 const express = require('express');
 const { buscarDeputados, obterDeputado, obterTodasDespesas, listarPartidos } = require('../services/deputados');
+const senado = require('../services/senado');
 const { calcularResumo, gerarSinais } = require('../services/motorAlerta');
 const cache = require('../services/cache');
 
@@ -17,6 +18,15 @@ const rota = express.Router();
 
 const ANO_PADRAO = () => new Date().getFullYear();
 const AMOSTRA = 40; // nº de deputados usados na visão geral
+const MOCK = process.env.USE_MOCK === 'true';
+
+async function obterDespesasDoSenador(id, ano) {
+    if (MOCK) return senado.mockDespesasSenador(id, ano);
+    const senador = await senado.obterSenador(id);
+    if (!senador) return [];
+    const despesas = await senado.obterDespesasCeaps(senador.nome, ano);
+    return Array.isArray(despesas) ? despesas : [];
+}
 
 function variacaoPercentual(serie) {
     const meses = serie.filter((s) => s.valor > 0);
@@ -85,6 +95,10 @@ rota.get('/geral', async (req, res) => {
 
         const todasDespesas = [];
         const sinaisAmostra = [];
+        const totaisPorPartido = {};
+        const totaisPorUf = {};
+        const contagemPorPartido = {};
+        const contagemPorUf = {};
 
         for (const dep of amostra) {
             const despesas = await obterTodasDespesas(dep.id, ano);
@@ -92,6 +106,13 @@ rota.get('/geral', async (req, res) => {
             const sinais = gerarSinais(despesas, resumo, { nomePolitico: dep.nome });
             todasDespesas.push(...despesas);
             sinaisAmostra.push({ dep, sinais });
+
+            const partido = dep.partido || '—';
+            const uf = dep.uf || '—';
+            totaisPorPartido[partido] = (totaisPorPartido[partido] || 0) + resumo.total;
+            totaisPorUf[uf] = (totaisPorUf[uf] || 0) + resumo.total;
+            contagemPorPartido[partido] = (contagemPorPartido[partido] || 0) + 1;
+            contagemPorUf[uf] = (contagemPorUf[uf] || 0) + 1;
         }
 
         const resumo = calcularResumo(todasDespesas);
@@ -129,6 +150,13 @@ rota.get('/geral', async (req, res) => {
             categorias: resumo.categorias.slice(0, 12),
             serieMensal: resumo.serieMensal,
             fornecedores: resumo.fornecedores.slice(0, 10),
+            porPartido: Object.entries(totaisPorPartido)
+                .map(([partido, valor]) => ({ partido, valor, totalDeputados: contagemPorPartido[partido] }))
+                .sort((a, b) => b.valor - a.valor)
+                .slice(0, 12),
+            porUf: Object.entries(totaisPorUf)
+                .map(([uf, valor]) => ({ uf, valor, totalDeputados: contagemPorUf[uf] }))
+                .sort((a, b) => b.valor - a.valor),
             destaques,
             aviso: 'Visão geral calculada a partir de uma amostra de dados públicos.',
         };
@@ -173,7 +201,7 @@ rota.get('/deputado/:id', async (req, res) => {
     }
 });
 
-/** GET /api/analise/comparar?ids=1,2&ano= */
+/** GET /api/analise/comparar?ids=dep:1,sen:9001&ano= */
 rota.get('/comparar', async (req, res) => {
     const ano = Number(req.query.ano) || ANO_PADRAO();
     const ids = String(req.query.ids || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 4);
@@ -182,37 +210,70 @@ rota.get('/comparar', async (req, res) => {
             return res.status(400).json({ erro: 'Informe ao menos dois parlamentares (ids).' });
         }
 
-        const deputados = [];
+        const parlamentares = [];
         const categoriasMap = {};
 
-        for (const id of ids) {
-            const deputado = await obterDeputado(id);
-            if (!deputado) continue;
+        for (const ref of ids) {
+            const tipo = ref.includes(':') ? ref.split(':')[0] : 'dep';
+            const id = ref.includes(':') ? ref.slice(ref.indexOf(':') + 1) : ref;
+            let registro = null;
 
-            const despesas = await obterTodasDespesas(id, ano);
-            const resumo = calcularResumo(despesas);
+            if (tipo === 'sen') {
+                const senador = await senado.obterSenador(id);
+                if (!senador) continue;
 
-            for (const cat of resumo.categorias) {
-                if (!categoriasMap[cat.tipo]) categoriasMap[cat.tipo] = {};
-                categoriasMap[cat.tipo][id] = cat.valor;
+                const despesas = await obterDespesasDoSenador(senador.id, ano);
+                const resumo = calcularResumo(despesas);
+
+                for (const cat of resumo.categorias) {
+                    if (!categoriasMap[cat.tipo]) categoriasMap[cat.tipo] = {};
+                    categoriasMap[cat.tipo][`sen:${senador.id}`] = cat.valor;
+                }
+
+                registro = {
+                    id: `sen:${senador.id}`,
+                    nome: senador.nome,
+                    partido: senador.partido,
+                    uf: senador.uf,
+                    urlFoto: senador.urlFoto || '',
+                    cargo: 'Senador',
+                    total: resumo.total,
+                    media: resumo.media,
+                    quantidade: resumo.quantidade,
+                    categoriaPrincipal: resumo.categorias[0] ? resumo.categorias[0].tipo : '—',
+                };
+            } else {
+                const deputado = await obterDeputado(id);
+                if (!deputado) continue;
+
+                const despesas = await obterTodasDespesas(id, ano);
+                const resumo = calcularResumo(despesas);
+
+                for (const cat of resumo.categorias) {
+                    if (!categoriasMap[cat.tipo]) categoriasMap[cat.tipo] = {};
+                    categoriasMap[cat.tipo][`dep:${deputado.id}`] = cat.valor;
+                }
+
+                registro = {
+                    id: `dep:${deputado.id}`,
+                    nome: deputado.nome,
+                    partido: deputado.partido,
+                    uf: deputado.uf,
+                    urlFoto: deputado.urlFoto || '',
+                    cargo: 'Deputado Federal',
+                    total: resumo.total,
+                    media: resumo.media,
+                    quantidade: resumo.quantidade,
+                    categoriaPrincipal: resumo.categorias[0] ? resumo.categorias[0].tipo : '—',
+                };
             }
 
-            deputados.push({
-                id: deputado.id,
-                nome: deputado.nome,
-                partido: deputado.partido,
-                uf: deputado.uf,
-                urlFoto: deputado.urlFoto,
-                total: resumo.total,
-                media: resumo.media,
-                quantidade: resumo.quantidade,
-                categoriaPrincipal: resumo.categorias[0] ? resumo.categorias[0].tipo : '—',
-            });
+            if (registro) parlamentares.push(registro);
         }
 
         const categorias = Object.entries(categoriasMap).map(([tipo, valores]) => ({ tipo, valores }));
 
-        res.json({ ano, deputados, categorias });
+        res.json({ ano, deputados: parlamentares, categorias });
     } catch (erro) {
         console.error('[analise/comparar]', erro.message);
         res.status(erro.status || 502).json({ erro: erro.message });

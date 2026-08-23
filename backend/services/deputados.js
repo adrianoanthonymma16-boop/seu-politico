@@ -144,6 +144,41 @@ async function obterTodasDespesas(id, ano, limitePaginas = 15) {
     return viaRest;
 }
 
+/* ---- Discursos/pronunciamentos do deputado ---- */
+async function obterDiscursos(id, ano) {
+    const chaveCache = `camara:discursos:${id}:${ano}`;
+    const cached = await cache.obter(chaveCache);
+    if (cached) return cached;
+
+    if (MOCK) {
+        const resultado = mock.obterDiscursosDeputado(id, ano);
+        await cache.gravar(chaveCache, resultado, 6 * 3600);
+        return resultado;
+    }
+
+    const resposta = await requisitarCamara(`deputados/${id}/discursos`, {
+        dataInicio: `${ano}-01-01`,
+        dataFim: `${ano}-12-31`,
+        itens: ITENS,
+        ordenarPor: 'dataHoraInicio',
+        ordem: 'DESC',
+    });
+
+    const dados = (resposta.dados || []).map((d) => ({
+        dataHoraInicio: d.dataHoraInicio || '',
+        tipoDiscurso: d.tipoDiscurso || '',
+        sumario: d.sumario || '',
+        transcricao: d.transcricao || '',
+        keywords: d.keywords || '',
+        urlTexto: d.urlTexto || '',
+        urlAudio: d.urlAudio || '',
+        urlVideo: d.urlVideo || '',
+    }));
+    const resultado = { dados, links: resposta.links || {} };
+    await cache.gravar(chaveCache, resultado, 6 * 3600);
+    return resultado;
+}
+
 /* ---- Partidos ---- */
 async function listarPartidos() {
     const chaveCache = 'camara:partidos';
@@ -166,6 +201,65 @@ async function listarPartidos() {
     return dados;
 }
 
+/**
+ * Frequência em Plenário de um deputado (presenças e faltas no ano).
+ * A API de dados abertos não expõe frequência — a Câmara a publica na página
+ * pública "presenca-plenario/{ano}" (HTML). Extraímos o resumo do período.
+ */
+async function obterFrequencia(id, ano) {
+    const chaveCache = `camara:frequencia:${id}:${ano}`;
+    const cached = await cache.obter(chaveCache);
+    if (cached) return cached;
+
+    if (MOCK) {
+        const resultado = mock.obterFrequenciaDeputado(id, ano);
+        await cache.gravar(chaveCache, resultado, 6 * 3600);
+        return resultado;
+    }
+
+    const url = `https://www.camara.leg.br/deputados/${id}/presenca-plenario/${ano}`;
+    const resposta = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (SeuPolitico/1.0)', Accept: 'text/html' },
+        signal: AbortSignal.timeout(30000),
+    });
+    if (!resposta.ok) {
+        throw Object.assign(new Error(`Página de presença respondeu ${resposta.status}.`), { status: resposta.status });
+    }
+    const html = await resposta.text();
+
+    const extrair = (rotulo) => {
+        const i = html.indexOf(rotulo);
+        if (i < 0) return null;
+        const m = html.slice(i, i + 500).match(/<td>\s*([\d.,]+)/);
+        return m ? parseInt(m[1].replace(/\./g, ''), 10) : null;
+    };
+
+    const presencas = extrair('Total de dias com presença nas sessões deliberativas');
+    const faltasJustificadas = extrair('Total de dias com ausências justificadas em sessões deliberativas');
+    const faltasInjustificadas = extrair('Total de dias com ausências não justificadas em sessões deliberativas');
+    const totalSessoes = extrair('Total de dias com sessões deliberativas realizadas no período');
+
+    if (presencas === null && faltasJustificadas === null && faltasInjustificadas === null) {
+        throw new Error('Não foi possível ler a frequência deste parlamentar na fonte oficial.');
+    }
+
+    const somatorio = (presencas || 0) + (faltasJustificadas || 0) + (faltasInjustificadas || 0);
+    const resultado = {
+        fonte: 'Presença em Plenário — Câmara dos Deputados',
+        urlFonte: url,
+        ano: Number(ano),
+        totalSessoes: totalSessoes ?? somatorio,
+        presencas: presencas ?? 0,
+        faltasJustificadas: faltasJustificadas ?? 0,
+        faltasInjustificadas: faltasInjustificadas ?? 0,
+        taxaPresenca: totalSessoes
+            ? Math.round(((presencas || 0) / totalSessoes) * 10000) / 100
+            : null,
+    };
+    await cache.gravar(chaveCache, resultado, 6 * 3600);
+    return resultado;
+}
+
 /* ---- Extrai a última página a partir dos links de paginação ---- */
 function extrairUltimaPagina(links, paginaAtual) {
     if (!Array.isArray(links)) return paginaAtual;
@@ -183,6 +277,8 @@ module.exports = {
     buscarDeputados,
     obterDeputado,
     obterTodasDespesas,
+    obterFrequencia,
+    obterDiscursos,
     listarPartidos,
     normalizarDeputado,
     normalizarDespesa,

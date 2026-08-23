@@ -8,6 +8,7 @@
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
+    <script src="src/js/theme.js"></script>
 </head>
 <body>
     <header>
@@ -36,15 +37,16 @@
                 <ul>
                     <li><a href="index.html"><i class="fa-solid fa-house" aria-hidden="true"></i> Início</a></li>
                     <li><a href="dashboard.html" class="ativo" aria-current="page"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Dashboard</a></li>
-                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Parlamentares</a></li>
+                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Deputados</a></li>
                     <li><a href="senadores.html"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Senadores</a></li>
                     <li><a href="presidente.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Presidente</a></li>
                     <li><a href="candidatos.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Candidatos 2026</a></li>
                     <li><a href="executivo.html"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Contratos</a></li>
                     <li><a href="comparar.html"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar</a></li>
+                    <li><a href="votacao.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</a></li>
                     <li><a href="politico.html"><i class="fa-solid fa-user" aria-hidden="true"></i> Perfil</a></li>
                     <li><a href="#"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> Licitações</a></li>
-                    <li><a href="#"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
+                    <li><a href="aprender.html"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
                 </ul>
             </nav>
         </aside>
@@ -102,6 +104,22 @@
                 <h3 class="section-title" id="tituloGraficoLinha"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Evolução mensal</h3>
                 <div class="chart-box">
                     <canvas id="graficoLinha" aria-label="Gráfico de linha da evolução mensal de gastos" role="img"></canvas>
+                </div>
+            </section>
+
+            <section aria-labelledby="tituloGraficoPartido">
+                <h3 class="section-title" id="tituloGraficoPartido"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Gastos por partido</h3>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">A partir da amostra da visão geral — dados públicos.</p>
+                <div class="chart-box">
+                    <canvas id="graficoPartido" aria-label="Gráfico de barras de gastos por partido" role="img"></canvas>
+                </div>
+            </section>
+
+            <section aria-labelledby="tituloGraficoUf">
+                <h3 class="section-title" id="tituloGraficoUf"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Gastos por UF</h3>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">A partir da amostra da visão geral — dados públicos.</p>
+                <div class="chart-box">
+                    <canvas id="graficoUf" aria-label="Gráfico de barras de gastos por UF" role="img"></canvas>
                 </div>
             </section>
 

@@ -15,6 +15,9 @@ const fmtNumero = (valor, casas = 0) =>
 const fmtMes = (mes) =>
     ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][mes - 1] || mes;
 
+/* Valores abaixo deste piso não geram sinais (evita alertas "pífios"). */
+const VALOR_MINIMO_SINAL = Number(process.env.VALOR_MINIMO_SINAL) || 5000;
+
 function somar(arr) {
     return arr.reduce((acc, v) => acc + (Number(v) || 0), 0);
 }
@@ -90,7 +93,7 @@ function gerarSinais(despesas, resumo, contexto = {}) {
     }
 
     /* 2. Fornecedor recorrente. */
-    if (fornecedores.length) {
+    if (fornecedores.length && fornecedores[0].valor >= VALOR_MINIMO_SINAL) {
         const [top] = fornecedores;
         if (top.percentual > 70) {
             sinais.push({
@@ -117,7 +120,9 @@ function gerarSinais(despesas, resumo, contexto = {}) {
     }
     for (const d of despesas) {
         const mediaTipo = mediasPorTipo[d.tipo] || 0;
-        if (mediaTipo > 0 && (Number(d.valor) || 0) > mediaTipo * 3) {
+        if (mediaTipo > 0
+            && (Number(d.valor) || 0) >= VALOR_MINIMO_SINAL
+            && (Number(d.valor) || 0) > mediaTipo * 3) {
             sinais.push({
                 nivel: 'alerta',
                 icone: '🟡',
@@ -144,7 +149,7 @@ function gerarSinais(despesas, resumo, contexto = {}) {
         for (let i = 1; i < lista.length; i++) {
             const anterior = lista[i - 1][1];
             const atual = lista[i][1];
-            if (anterior > 0 && atual > anterior * 3) {
+            if (anterior > 0 && atual > anterior * 3 && atual >= VALOR_MINIMO_SINAL) {
                 const aumento = Math.round((atual / anterior - 1) * 100);
                 sinais.push({
                     nivel: 'comparacao',
@@ -163,7 +168,7 @@ function gerarSinais(despesas, resumo, contexto = {}) {
     if (mesesComDados.length >= 2) {
         const ultimo = mesesComDados[mesesComDados.length - 1];
         const anterior = mesesComDados[mesesComDados.length - 2];
-        if (anterior.valor > 0 && ultimo.valor > anterior.valor * 2) {
+        if (anterior.valor > 0 && ultimo.valor > anterior.valor * 2 && ultimo.valor >= VALOR_MINIMO_SINAL) {
             const aumento = Math.round((ultimo.valor / anterior.valor - 1) * 100);
             sinais.push({
                 nivel: 'alerta',
@@ -172,6 +177,19 @@ function gerarSinais(despesas, resumo, contexto = {}) {
                 texto: `O gasto subiu ${fmtNumero(aumento, 0)}% em um mês (de ${fmtBRL(anterior.valor)} em ${fmtMes(anterior.mes)} para ${fmtBRL(ultimo.valor)} em ${fmtMes(ultimo.mes)}). Sem explicação aparente — apenas os dados.`,
             });
         }
+    }
+
+    /* 6. Maior despesa registrada (valor relevante, apenas contexto). */
+    if (resumo.maior >= VALOR_MINIMO_SINAL) {
+        const maiorDespesa = despesas.reduce((a, b) =>
+            ((Number(b.valor) || 0) > (Number(a.valor) || 0) ? b : a), despesas[0]);
+        const receptor = maiorDespesa.fornecedor || maiorDespesa.beneficiario || 'fornecedor não informado';
+        sinais.push({
+            nivel: 'info',
+            icone: '💰',
+            titulo: 'Maior despesa registrada',
+            texto: `A maior despesa do período foi de ${fmtBRL(maiorDespesa.valor)} em "${maiorDespesa.tipo}" (${receptor}). Apenas dados públicos — o que você acha disso?`,
+        });
     }
 
     sinais.push({

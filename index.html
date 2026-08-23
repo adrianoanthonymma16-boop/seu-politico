@@ -8,6 +8,7 @@
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
+    <script src="src/js/theme.js"></script>
 </head>
 <body>
     <!-- ===== CABEÇALHO FIXO ===== -->
@@ -50,15 +51,16 @@
                 <ul>
                     <li><a href="index.html" class="ativo" aria-current="page"><i class="fa-solid fa-house" aria-hidden="true"></i> Início</a></li>
                     <li><a href="dashboard.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Dashboard</a></li>
-                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Parlamentares</a></li>
+                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Deputados</a></li>
                     <li><a href="senadores.html"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Senadores</a></li>
                     <li><a href="presidente.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Presidente</a></li>
                     <li><a href="candidatos.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Candidatos 2026</a></li>
                     <li><a href="executivo.html"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Contratos</a></li>
                     <li><a href="comparar.html"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar</a></li>
+                    <li><a href="votacao.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</a></li>
                     <li><a href="politico.html"><i class="fa-solid fa-user" aria-hidden="true"></i> Perfil</a></li>
                     <li><a href="#"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> Licitações</a></li>
-                    <li><a href="#"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
+                    <li><a href="aprender.html"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
                 </ul>
             </nav>
         </aside>
@@ -76,7 +78,7 @@
             <section aria-label="Indicadores gerais" id="indicadoresGerais">
                 <div class="card-grid">
                     <div class="card">
-                        <div class="card-titulo">Parlamentares monitorados</div>
+                        <div class="card-titulo">Deputados monitorados</div>
                         <div class="card-valor" id="totalDeputados">—</div>
                     </div>
                     <div class="card">
@@ -93,6 +95,9 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Políticos que você acompanha (localStorage) -->
+            <div id="seguidosHome" aria-live="polite"></div>
 
             <!-- Destaques / alertas recentes -->
             <section aria-labelledby="tituloDestaques">

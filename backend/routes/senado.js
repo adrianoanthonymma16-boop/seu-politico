@@ -9,7 +9,7 @@
    ========================================================================== */
 
 const express = require('express');
-const { listarSenadores, obterSenador, sincronizarCeaps, obterDespesasCeaps, mockDespesasSenador } = require('../services/senado');
+const { listarSenadores, obterSenador, sincronizarCeaps, obterDespesasCeaps, obterFrequenciaVotacoes, obterVotacoesSenador, obterDetalheVotacaoSenado, obterDiscursosSenador, mockDespesasSenador } = require('../services/senado');
 const { calcularResumo, gerarSinais } = require('../services/motorAlerta');
 const cache = require('../services/cache');
 
@@ -80,6 +80,52 @@ rota.get('/ceaps/sincronizar', async (req, res) => {
     } catch (erro) {
         console.error('[senado/ceaps]', erro.message);
         res.status(erro.status || 500).json({ erro: erro.message });
+    }
+});
+
+/** GET /api/senado/senador/:id/frequencia?ano= — presenças e faltas em votações */
+rota.get('/senador/:id/frequencia', async (req, res) => {
+    try {
+        const ano = Number(req.query.ano) || ANO_PADRAO();
+        const resultado = await obterFrequenciaVotacoes(req.params.id, ano);
+        res.json(resultado);
+    } catch (erro) {
+        console.error('[senado/frequencia]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
+    }
+});
+
+/** GET /api/senado/senador/:id/discursos?ano= — pronunciamentos do senador */
+rota.get('/senador/:id/discursos', async (req, res) => {
+    try {
+        const ano = Number(req.query.ano) || ANO_PADRAO();
+        res.json(await obterDiscursosSenador(req.params.id, ano));
+    } catch (erro) {
+        console.error('[senado/discursos]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
+    }
+});
+
+/** GET /api/senado/senador/:id/votacoes?ano= — como o senador votou */
+rota.get('/senador/:id/votacoes', async (req, res) => {
+    try {
+        const ano = Number(req.query.ano) || ANO_PADRAO();
+        const resultado = await obterVotacoesSenador(req.params.id, ano);
+        res.json(resultado);
+    } catch (erro) {
+        console.error('[senado/votacoes]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
+    }
+});
+
+/** GET /api/senado/votacao/:sessao/:votacao — placar + votos de uma votação */
+rota.get('/votacao/:sessao/:votacao', async (req, res) => {
+    try {
+        const resultado = await obterDetalheVotacaoSenado(req.params.sessao, req.params.votacao);
+        res.json(resultado);
+    } catch (erro) {
+        console.error('[senado/votacao]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
     }
 });
 

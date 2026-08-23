@@ -8,6 +8,7 @@
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
+    <script src="src/js/theme.js"></script>
 </head>
 <body>
     <header>
@@ -36,15 +37,16 @@
                 <ul>
                     <li><a href="index.html"><i class="fa-solid fa-house" aria-hidden="true"></i> Início</a></li>
                     <li><a href="dashboard.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Dashboard</a></li>
-                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Parlamentares</a></li>
+                    <li><a href="resultados.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Deputados</a></li>
                     <li><a href="senadores.html"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Senadores</a></li>
                     <li><a href="presidente.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Presidente</a></li>
                     <li><a href="candidatos.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Candidatos 2026</a></li>
                     <li><a href="executivo.html"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Contratos</a></li>
                     <li><a href="comparar.html" class="ativo" aria-current="page"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar</a></li>
+                    <li><a href="votacao.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</a></li>
                     <li><a href="politico.html"><i class="fa-solid fa-user" aria-hidden="true"></i> Perfil</a></li>
                     <li><a href="#"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> Licitações</a></li>
-                    <li><a href="#"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
+                    <li><a href="aprender.html"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
                 </ul>
             </nav>
         </aside>
@@ -52,16 +54,30 @@
         <main class="main-content" id="conteudoPrincipal">
             <h2 class="page-title">Comparar Gastos</h2>
             <p class="page-subtitle">
-                Selecione parlamentares para comparar gastos lado a lado. A comparação é neutra e
-                serve para contextualizar os números.
+                Selecione dois parlamentares — deputados e/ou senadores — para comparar gastos lado a lado.
+                A comparação é neutra e serve para contextualizar os números.
             </p>
 
             <!-- Seletores -->
             <section class="card comparar-seletor" aria-label="Seleção de parlamentares">
                 <div>
+                    <label for="cargoDep1">Cargo 1</label>
+                    <select id="cargoDep1" aria-label="Cargo do parlamentar 1">
+                        <option value="dep" selected>Deputado Federal</option>
+                        <option value="sen">Senador</option>
+                    </select>
+                </div>
+                <div>
                     <label for="seletorDep1">Parlamentar 1</label>
                     <select id="seletorDep1">
                         <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="cargoDep2">Cargo 2</label>
+                    <select id="cargoDep2" aria-label="Cargo do parlamentar 2">
+                        <option value="dep" selected>Deputado Federal</option>
+                        <option value="sen">Senador</option>
                     </select>
                 </div>
                 <div>
@@ -84,6 +100,21 @@
                     </button>
                 </div>
             </section>
+
+            <!-- Ferramentas: exportar e compartilhar -->
+            <div class="card" style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button class="btn btn-sm btn-outline btn-exportar" type="button" data-contexto="Comparar" data-formato="csv">
+                        <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Exportar CSV
+                    </button>
+                    <button class="btn btn-sm btn-outline btn-exportar" type="button" data-contexto="Comparar" data-formato="json">
+                        <i class="fa-solid fa-file-code" aria-hidden="true"></i> Exportar JSON
+                    </button>
+                </div>
+                <button class="btn btn-sm btn-compartilhar" type="button">
+                    <i class="fa-solid fa-link" aria-hidden="true"></i> Copiar link
+                </button>
+            </div>
 
             <!-- Resultado da comparação -->
             <section id="resultadoComparacao" aria-live="polite">

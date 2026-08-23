@@ -62,7 +62,7 @@ app.use('/api/informacao', rotaInformacao);
 app.use(express.static(RAIZ_FRONT));
 
 /* Fallback para SPA simples (roteamento das páginas .html). */
-app.get(['/', '/index.html', '/dashboard.html', '/resultados.html', '/politico.html', '/comparar.html', '/senadores.html', '/senador.html', '/executivo.html', '/presidente.html', '/candidatos.html'], (req, res) => {
+app.get(['/', '/index.html', '/dashboard.html', '/resultados.html', '/politico.html', '/comparar.html', '/senadores.html', '/senador.html', '/executivo.html', '/presidente.html', '/candidatos.html', '/votacao.html', '/aprender.html'], (req, res) => {
     const pagina = path.basename(req.path) || 'index.html';
     res.sendFile(path.join(RAIZ_FRONT, pagina === '/' ? 'index.html' : pagina));
 });

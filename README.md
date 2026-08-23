@@ -65,15 +65,21 @@ O **Seu Político** reúne dados de fontes oficiais e apresenta:
 
 ## Funcionalidades
 
-- **Página inicial** — buscador (nome, partido, estado), indicadores gerais e destaques.
-- **Dashboard** — gastos por categoria, evolução mensal, top fornecedores e indicadores.
-- **Parlamentares** — lista **completa** de deputados (todas as páginas) com atalhos para analisar/comparar.
-- **Perfil** — histórico de **TODAS as despesas de TODOS os anos** (seletor 2022–2026) com **filtros por tipo, mês e fornecedor** e **comprovante oficial** + análise com sinais.
-- **Senadores** — lista e perfil com **todas as despesas CEAPS por ano** (cota parlamentar do Senado), com filtros e comprovante.
+- **Página inicial** — buscador (nome, partido, estado), indicadores gerais, destaques e **políticos que você acompanha** (localStorage).
+- **Dashboard** — gastos por categoria, evolução mensal, **gastos por partido e por UF**, top fornecedores e indicadores.
+- **Deputados** — lista **completa** de deputados (todas as páginas) com atalhos para analisar/comparar.
+- **Perfil** — histórico de **TODAS as despesas de TODOS os anos** (seletor 2022–2026) com **filtros por tipo, mês e fornecedor** e **comprovante oficial** + análise com sinais (apenas padrões com **valores relevantes**, neutros e informativos) + bloco de **maiores fornecedores**. Inclui ainda o **registro de votações** do deputado em projetos de lei (com detalhe de quem votou a favor/contra), a **presença em Plenário** (presenças, faltas justificadas e injustificadas no ano) e os **discursos** em Plenário.
+- **Senadores** — lista e perfil com **todas as despesas CEAPS por ano** (cota parlamentar do Senado), com filtros e comprovante, além do **comparecimento em votações nominais** (presenças, faltas justificadas e injustificadas), o **registro de votações** (com placar) e os **discursos**.
 - **Contratos (Executivo)** — busca por ministério e tabela de contratos com link de validação no Portal.
-- **Presidente da República** — perfil informativo com resumo, foto e links oficiais, **mais análise de gastos completa**: todas as **viagens a serviço** e **contratos da Presidência**, com filtros, indicadores, sinais e comprovante no Portal.
+- **Presidente da República** — perfil informativo com resumo, foto e links oficiais, **mais análise de gastos completa**: todas as **viagens a serviço** e **contratos da Presidência**, com filtros, indicadores, sinais, **maiores fornecedores** e comprovante no Portal.
 - **Candidatos à Presidência** — candidatos registrados para 2026, ativo no período eleitoral (fonte pública, situação oficial no TSE).
-- **Comparar** — gastos lado a lado com gráfico agrupado por categoria.
+- **Votações** — busque uma proposição (ex.: `PL 1234/2025`) e veja o placar e como cada deputado votou, destacando os do seu estado.
+- **Comparar** — gastos lado a lado com gráfico agrupado por categoria, **incluindo deputados × senadores no mesmo gráfico**.
+- **Aprenda a fiscalizar** — guia educativo com passos para conferir os dados por conta própria.
+- **Seguir políticos** — salve perfis no navegador e acompanhe-os na página inicial.
+- **Exportação CSV/JSON** — download dos dados exibidos (respeitando os filtros aplicados) nas tabelas de despesas, viagens, contratos e comparações.
+- **Compartilhamento por URL** — filtros e ano codificados na URL (botão "Copiar link"), para enviar uma análise específica a outras pessoas.
+- **Tema claro/escuro** — alternância no cabeçalho, persistida no navegador e seguindo a preferência do sistema na primeira visita.
 
 ## Tecnologias
 
@@ -100,12 +106,15 @@ seu-politico/
 ├── presidente.html         # Perfil informativo do Presidente da República
 ├── candidatos.html         # Candidatos à Presidência (período eleitoral)
 ├── comparar.html           # Comparação entre parlamentares
+├── votacao.html            # Votação por proposição (PL/PEC) com placar
+├── aprender.html           # Guia "Aprenda a fiscalizar"
 ├── src/
 │   ├── css/
 │   │   └── style.css       # Paleta LightGray + layout + responsividade
 │   ├── js/
 │   │   ├── api.js          # Cliente HTTP (chama o proxy /api)
 │   │   ├── alerts.js       # Motor de suspeita (frontend)
+│   │   ├── theme.js        # Tema claro/escuro (aplica cedo, sem flash)
 │   │   └── main.js         # Lógica de interface e gráficos
 │   └── assets/
 │       ├── images/
@@ -226,6 +235,7 @@ docker run -p 3000:3000 \
 | `DATABASE_URL` | sim | Conexão PostgreSQL (cache + cotas/CEAPS). |
 | `USE_MOCK` | não | `false` em produção (padrão já é false). |
 | `PORT` | não | Porta do servidor (Render injeta ou 3000). |
+| `VALOR_MINIMO_SINAL` | não | Piso (R$) para um gasto gerar sinal na análise (padrão 5000). |
 
 ## Banco de dados (PostgreSQL)
 
@@ -254,19 +264,22 @@ Tabelas: `api_cache`, `deputados`, `despesas_parlamentares`, `alertas`.
 
 ## Motor de suspeita
 
-Regras neutras implementadas no **frontend** (`src/js/alerts.js`) e no
-**backend** (`backend/services/motorAlerta.js`):
+Regras neutras implementadas no **backend** (`backend/services/motorAlerta.js`).
+Para evitar sinais "pífios", apenas padrões com valores **≥ R$ 5.000**
+(`VALOR_MINIMO_SINAL`) geram alertas:
 
 | Sinal | Como detectar | Nível |
 |-------|---------------|-------|
 | Gasto acima da média | Compara o total com a média dos deputados do mesmo estado | 🟡 alerta |
-| Fornecedor recorrente | Concentração de >70% dos recursos em um fornecedor | 💡 info |
-| Serviço caro | Despesa >3x a média do mesmo tipo de despesa | 🟡 alerta |
-| Padrão incomum | Salto >200% em uma categoria entre meses | 📊 comparação |
-| Variação atípica | Aumento >100% no total entre dois meses | 🟡 alerta |
+| Fornecedor recorrente | Concentração de >70% dos recursos em um fornecedor (valor ≥ piso) | 💡 info |
+| Serviço caro | Despesa >3x a média do mesmo tipo de despesa (valor ≥ piso) | 🟡 alerta |
+| Padrão incomum | Salto >200% em uma categoria entre meses (valor ≥ piso) | 📊 comparação |
+| Variação atípica | Aumento >100% no total entre dois meses (valor ≥ piso) | 🟡 alerta |
+| Maior despesa registrada | Destaca a maior despesa do período (valor ≥ piso) | 💡 info |
 
 A linguagem é sempre neutra e participativa ("O que você acha disso?",
-"Vale a pena investigar?").
+"Vale a pena investigar?"). O perfil também mostra o bloco
+**"Maiores fornecedores no ano"** com os valores e a participação de cada um.
 
 ## Termos de uso das APIs
 
@@ -281,9 +294,11 @@ A linguagem é sempre neutra e participativa ("O que você acha disso?",
 
 ## Próximos passos
 
+- [ ] **Bens declarados (TSE)** — adiado: `dadosabertos.tse.jus.br` está
+      bloqueando o servidor (403/Akamai); avaliar proxy ou chamada no navegador.
 - [ ] Integrar **licitações e despesas do Executivo** quando a especificação
       oficial do Portal estiver acessível (hoje a API exige parâmetros protegidos).
-- [ ] Comparar deputados × senadores no mesmo gráfico.
 - [ ] Autenticação/usuários e alertas por e-mail.
-- [ ] Exportação de dados (CSV/JSON) e compartilhamento de análises.
+- [ ] Pedido de informação (LAI) pré-preenchido para o político/órgão.
+- [ ] Compartilhar a análise como imagem (PNG).
 - [ ] Testes automatizados (front e back).
