@@ -125,6 +125,71 @@
                 </div>
             </section>
 
+            <!-- Partidos e Poderes -->
+            <section aria-labelledby="tituloPoderes" style="margin-top:28px;">
+                <h3 class="section-title" id="tituloPoderes"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Partidos e Poderes</h3>
+
+                <!-- Aviso honesto -->
+                <div class="sinal sinal-info" id="avisoPoderes" aria-live="polite">
+                    <span class="sinal-icone" aria-hidden="true">🔍</span>
+                    <div>
+                        <div class="sinal-titulo">Como estes números são medidos</div>
+                        <p class="sinal-texto">
+                            <strong>Emendas</strong> mostram a <strong>execução (valor pago)</strong> por partido, conforme o Portal da
+                            Transparência — o "direito" por partido não é publicado. O gasto do <strong>Executivo</strong> é medido pelos
+                            <strong>contratos assinados</strong> dos órgãos superiores (as despesas do Portal estão bloqueadas).
+                            Padrões neutros para investigação.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card" style="margin:14px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <label for="seletorMesPoderes" style="font-weight:600;">Mês:</label>
+                    <select id="seletorMesPoderes" aria-label="Filtrar por mês">
+                        <option value="">Todos</option>
+                        <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                        <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                        <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                        <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                    </select>
+                </div>
+
+                <!-- Cards por poder -->
+                <div class="card-grid" id="porPoderCards">
+                    <div class="carregando" style="grid-column:1/-1;"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando gastos por poder...</p></div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="card-grid" style="margin-top:18px;">
+                    <div class="chart-box" style="min-height:220px;">
+                        <canvas id="graficoPoderesPoderes" aria-label="Gráfico de barras de gastos por poder" role="img"></canvas>
+                    </div>
+                    <div class="chart-box" style="min-height:220px;">
+                        <canvas id="graficoPoderesPartidos" aria-label="Gráfico de barras de gastos por partido" role="img"></canvas>
+                    </div>
+                </div>
+
+                <!-- Tabela por partido -->
+                <h4 style="margin-top:20px;"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Partidos — composição, gastos e emendas</h4>
+                <div class="tabela-wrapper" style="margin-top:8px;">
+                    <table class="tabela">
+                        <thead>
+                            <tr>
+                                <th>Partido</th>
+                                <th>Deputados</th>
+                                <th>Senadores</th>
+                                <th>Cota (Câmara)</th>
+                                <th>CEAPS (Senado)</th>
+                                <th>Emendas (pago)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpoPoderesPartidos">
+                            <tr><td colspan="6" class="carregando">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
             <section aria-labelledby="tituloTopFornecedores">
                 <h3 class="section-title" id="tituloTopFornecedores"><i class="fa-solid fa-building" aria-hidden="true"></i> Fornecedores que mais receberam</h3>
                 <div class="tabela-wrapper">

@@ -127,6 +127,49 @@ img {
 }
 
 /* ==========================================================================
+   CONTROLES DE FORMULÁRIO (base — inputs, selects e botões)
+   --------------------------------------------------------------------------
+   Aplica estilo consistente a TODOS os controles. Regras específicas
+   (#Pesquisar, .search-wrapper, .filtros-busca, .comparar-seletor) têm mais
+   especificidade e continuam valendo.
+   ========================================================================== */
+input,
+select,
+textarea,
+button {
+    font-family: var(--font-corpo);
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+    padding: 10px 12px;
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+}
+
+button {
+    cursor: pointer;
+}
+
+input[type="date"] {
+    min-height: 44px;
+}
+
+/* ==========================================================================
    LAYOUT PRINCIPAL (grid: sidebar + conteúdo)
    ========================================================================== */
 .page-layout {

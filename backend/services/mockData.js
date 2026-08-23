@@ -456,6 +456,42 @@ module.exports = {
         };
     },
 
+    listarPoderes(ano, mes) {
+        const rng = sementeDe(`poderes${ano}-${mes || 0}`);
+        const partidos = PARTIDOS.slice(0, 8);
+        const porPartido = partidos.map((partido) => {
+            const deputados = 10 + Math.floor(rng() * 60);
+            const senadores = 1 + Math.floor(rng() * 12);
+            const gastoCota = 200000 + Math.floor(rng() * 3000000);
+            const gastoCeaps = 50000 + Math.floor(rng() * 600000);
+            return {
+                partido,
+                deputados,
+                senadores,
+                totalPoliticos: deputados + senadores,
+                gastoCota,
+                gastoCeaps,
+                gastoTotal: gastoCota + gastoCeaps,
+                emendasPago: 1000000 + Math.floor(rng() * 20000000),
+            };
+        }).sort((a, b) => b.gastoTotal - a.gastoTotal);
+
+        return {
+            ano: Number(ano),
+            mes: mes ? Number(mes) : 0,
+            porPoder: [
+                { poder: 'Câmara (cota parlamentar)', total: porPartido.reduce((a, p) => a + p.gastoCota, 0) },
+                { poder: 'Senado (CEAPS)', total: porPartido.reduce((a, p) => a + p.gastoCeaps, 0) },
+                { poder: 'Executivo (contratos)', total: 30000000 + Math.floor(rng() * 900000000), contratos: 300 + Math.floor(rng() * 4000) },
+            ],
+            porPartido,
+            emendas: { total: porPartido.reduce((a, p) => a + p.emendasPago, 0), semPartido: 150000 },
+            aviso: mes
+                ? 'Emendas mostram a execução (valor pago) por partido apenas no total do ano — a fonte não tem mês. (Dados fictícios.)'
+                : 'Emendas = execução (valor pago) por partido, conforme o Portal — o "direito" por partido não é publicado. Executivo medido por contratos assinados. (Dados fictícios.)',
+        };
+    },
+
     obterFrequenciaDeputado(id, ano) {
         const rng = sementeDe(`freqDep${id}-${ano}`);
         const presencas = 80 + Math.floor(rng() * 40);

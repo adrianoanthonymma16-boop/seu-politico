@@ -1025,10 +1025,107 @@
 
     function iniciarDashboard() {
         carregarDashboard();
+        carregarPoderes();
         const botao = $('#botaoAtualizarDashboard');
-        if (botao) botao.addEventListener('click', carregarDashboard);
+        if (botao) botao.addEventListener('click', () => { carregarDashboard(); carregarPoderes(); });
         const seletor = $('#seletorAnoDashboard');
-        if (seletor) seletor.addEventListener('change', carregarDashboard);
+        if (seletor) seletor.addEventListener('change', () => { carregarDashboard(); carregarPoderes(); });
+        const seletorMes = $('#seletorMesPoderes');
+        if (seletorMes) seletorMes.addEventListener('change', carregarPoderes);
+    }
+
+    /* ---- Partidos e Poderes (seção do dashboard) ---- */
+    async function carregarPoderes() {
+        const corpo = $('#corpoPoderesPartidos');
+        const cards = $('#porPoderCards');
+        if (!corpo && !cards) return;
+
+        const ano = Number($('#seletorAnoDashboard')?.value || new Date().getFullYear());
+        const mes = $('#seletorMesPoderes')?.value || '';
+
+        if (corpo) corpo.innerHTML = '<tr><td colspan="6" class="carregando">Carregando...</td></tr>';
+        if (cards) cards.innerHTML = '<div class="carregando" style="grid-column:1/-1;"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando gastos por poder...</p></div>';
+
+        try {
+            const dados = await SeuPoliticoAPI.analisePoderes({ ano, mes: mes || 0 });
+            renderizarPoderes(dados);
+        } catch (erro) {
+            if (cards) renderizarEstadosVazio(cards, 'erro', 'fa-triangle-exclamation', erro.message);
+            if (corpo) corpo.innerHTML = `<tr><td colspan="6" class="erro">${escaparHtml(erro.message)}</td></tr>`;
+        }
+    }
+
+    function renderizarPoderes(dados) {
+        // Aviso honesto (sempre visível, dinâmico).
+        const avisoEl = $('#avisoPoderes .sinal-texto');
+        if (avisoEl && dados.aviso) avisoEl.innerHTML = `${dados.aviso}`;
+
+        // Cards por poder.
+        const cards = $('#porPoderCards');
+        if (cards) {
+            cards.innerHTML = (dados.porPoder || []).map((p) => `
+                <div class="card">
+                    <div class="card-titulo">${escaparHtml(p.poder)}</div>
+                    <div class="card-valor">${MotorAlerta.fmtBRL(p.total)}</div>
+                    ${p.contratos ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;">${p.contratos} contratos</div>` : ''}
+                </div>`).join('');
+        }
+
+        // Gráfico por poder.
+        const porPoder = dados.porPoder || [];
+        if (porPoder.length) {
+            criarOuAtualizar('graficoPoderesPoderes', {
+                type: 'bar',
+                data: {
+                    labels: porPoder.map((p) => p.poder),
+                    datasets: [{
+                        label: `Gasto em ${dados.ano}`,
+                        data: porPoder.map((p) => p.total),
+                        backgroundColor: [coresPaleta[0], coresPaleta[1], coresPaleta[3]],
+                        borderRadius: 4,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${MotorAlerta.fmtBRL(ctx.parsed.y)}` } } },
+                },
+            });
+        }
+
+        // Tabela + gráfico por partido.
+        const partidos = dados.porPartido || [];
+        const emendasDisponiveis = dados.emendas !== null && dados.emendas !== undefined;
+        const corpo = $('#corpoPoderesPartidos');
+        if (corpo) {
+            corpo.innerHTML = partidos.length
+                ? partidos.map((p) => `
+                    <tr>
+                        <td><strong>${escaparHtml(p.partido)}</strong> <span style="color:var(--text-muted);font-size:12px;">(${p.totalPoliticos} pol.)</span></td>
+                        <td>${p.deputados}</td>
+                        <td>${p.senadores}</td>
+                        <td>${MotorAlerta.fmtBRL(p.gastoCota)}</td>
+                        <td>${MotorAlerta.fmtBRL(p.gastoCeaps)}</td>
+                        <td>${emendasDisponiveis ? MotorAlerta.fmtBRL(p.emendasPago) : '—'}</td>
+                    </tr>`).join('')
+                : '<tr><td colspan="6" class="estado-vazio">Sem dados para o período.</td></tr>';
+        }
+
+        if (partidos.length) {
+            criarOuAtualizar('graficoPoderesPartidos', {
+                type: 'bar',
+                data: {
+                    labels: partidos.slice(0, 12).map((p) => p.partido),
+                    datasets: [
+                        { label: 'Cota (Câmara)', data: partidos.slice(0, 12).map((p) => p.gastoCota), backgroundColor: coresPaleta[0], borderRadius: 4 },
+                        { label: 'CEAPS (Senado)', data: partidos.slice(0, 12).map((p) => p.gastoCeaps), backgroundColor: coresPaleta[3], borderRadius: 4 },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${MotorAlerta.fmtBRL(ctx.parsed.y)}` } } },
+                },
+            });
+        }
     }
 
     /* ======================================================================

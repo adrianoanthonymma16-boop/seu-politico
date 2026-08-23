@@ -12,6 +12,7 @@ const express = require('express');
 const { buscarDeputados, obterDeputado, obterTodasDespesas, listarPartidos } = require('../services/deputados');
 const senado = require('../services/senado');
 const { listarEmpresasRecorrentes } = require('../services/empresas');
+const { listarPoderes } = require('../services/poderes');
 const { calcularResumo, gerarSinais, gerarSinaisComparacao } = require('../services/motorAlerta');
 const cache = require('../services/cache');
 
@@ -62,6 +63,18 @@ async function calcularMediaUf(uf, ano) {
     await cache.gravar(chave, resultado, 6 * 3600);
     return resultado;
 }
+
+/** GET /api/analise/poderes?ano=&mes= — partidos, emendas e gastos por poder */
+rota.get('/poderes', async (req, res) => {
+    try {
+        const ano = Number(req.query.ano) || ANO_PADRAO();
+        const mes = req.query.mes ? Number(req.query.mes) : 0;
+        res.json(await listarPoderes(ano, mes));
+    } catch (erro) {
+        console.error('[analise/poderes]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
+    }
+});
 
 /** GET /api/analise/empresas?ano= — empresas que recebem de 2+ parlamentares */
 rota.get('/empresas', async (req, res) => {

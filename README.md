@@ -66,7 +66,7 @@ O **Seu Político** reúne dados de fontes oficiais e apresenta:
 ## Funcionalidades
 
 - **Página inicial** — buscador com **autocomplete** (nome, partido, estado), indicadores gerais, destaques sempre vindos da API (nada estático), **políticos que você acompanha** (localStorage) e **atualização automática a cada 24h** (com botão "Atualizar" e selo "Atualizado às HH:MM").
-- **Dashboard** — gastos por categoria, evolução mensal, **gastos por partido e por UF**, top fornecedores e indicadores, com atualização automática de 24h.
+- **Dashboard** — gastos por categoria, evolução mensal, **gastos por partido e por UF**, top fornecedores e indicadores, com atualização automática de 24h. A seção **"Partidos e Poderes"** mostra a **composição por partido** (deputados/senadores), o **gasto por partido** (cota Câmara + CEAPS Senado), as **emendas por partido** (execução/valor pago, só ano) e o **gasto por poder** (Câmara × Senado × Executivo-contratos), com **filtros de ano e mês**.
 - **Deputados** — lista **completa** de deputados (todas as páginas) com atalhos para analisar/comparar.
 - **Perfil** — histórico de **TODAS as despesas de TODOS os anos** (seletor 2022–2026) com **filtros por tipo, mês, fornecedor, data e valor** e **comprovante oficial** + análise com sinais (apenas padrões com **valores relevantes**, neutros e informativos) + bloco de **maiores fornecedores**. Inclui ainda o **registro de votações** do deputado em projetos de lei — com **busca por projeto (ex.: `PL 1234/2025`)** e detalhe de quem votou a favor/contra —, a **presença em Plenário** (presenças, faltas justificadas e injustificadas no ano) e os **discursos** em Plenário.
 - **Senadores** — lista e perfil com **todas as despesas CEAPS por ano** (cota parlamentar do Senado), com **filtros por tipo, mês, fornecedor, data e valor** e comprovante, além do **comparecimento em votações nominais** (presenças, faltas justificadas e injustificadas), o **registro de votações** (com **busca por projeto/voto** e placar) e os **discursos**.
@@ -142,6 +142,7 @@ seu-politico/
 │   │   ├── informacao.js   # Presidente e candidatos 2026 (Wikipedia pt)
 │   │   ├── orgaosPrincipais.js # Órgãos superiores do Executivo (SIAFI)
 │   │   ├── empresas.js      # Empresas que recebem de 2+ parlamentares
+│   │   ├── poderes.js       # Dashboard: partidos, emendas e gastos por poder
 │   │   ├── motorAlerta.js  # Motor de suspeita (servidor — fonte única)
 │   │   └── mockData.js     # Dados fictícios (USE_MOCK=true)
 │   ├── test/

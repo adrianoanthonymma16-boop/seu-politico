@@ -222,5 +222,10 @@ const SeuPoliticoAPI = (() => {
         listarEmpresasRecorrentes(ano) {
             return requisicao('/analise/empresas', { ano });
         },
+
+        /** Dashboard "Partidos e Poderes" (partidos, emendas e gastos por poder). */
+        analisePoderes({ ano, mes } = {}) {
+            return requisicao('/analise/poderes', { ano, mes });
+        },
     };
 })();
