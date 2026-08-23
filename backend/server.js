@@ -80,6 +80,10 @@ app.use((erro, req, res, next) => {
 async function iniciar() {
     await garantirSchema();
 
+    // Pré-computação diária (mantém o cache quente no Render free).
+    const { iniciarWarmup } = require('./services/warmup');
+    iniciarWarmup();
+
     app.listen(PORTA, () => {
         console.log('==============================================');
         console.log('  SEU POLÍTICO — transparência cidadã');

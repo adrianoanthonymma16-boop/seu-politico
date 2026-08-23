@@ -1,9 +1,17 @@
 # ==========================================================================
-# render.yaml — Blueprint de deploy do Seu Político no Render
+# render.yaml — Blueprint de deploy do Seu Político no Render (plano free)
 # --------------------------------------------------------------------------
-# Cria o serviço web (Node) + PostgreSQL gerenciado.
-# Depois de criar o serviço, configure a variável secreta CHAVE_API_PORTAL
-# no painel do Render (sync: false abaixo).
+# Serviço web Node persistente. O banco usa um PostgreSQL externo (Neon ou
+# Supabase, planos gratuitos) — o Postgres gerenciado do Render expira em 30
+# dias, por isso não é usado aqui.
+#
+# Passos:
+#   1. Crie um projeto no Neon (https://neon.tech) e copie a connection string.
+#   2. No painel do Render, crie o serviço a partir deste blueprint.
+#   3. Preencha as variáveis secretas: DATABASE_URL (Neon) e CHAVE_API_PORTAL.
+#   4. O schema do banco é aplicado automaticamente no boot.
+#   5. Para evitar o "sleep" de 15 min do free, use um monitor gratuito
+#      (ex.: UptimeRobot) batendo em /api/health a cada 5 minutos.
 # ==========================================================================
 
 services:
@@ -22,15 +30,7 @@ services:
         value: "false"
       - key: PORT
         value: "3000"
-      - key: CHAVE_API_PORTAL
-        sync: false # preencher no painel (secreto)
       - key: DATABASE_URL
-        fromDatabase:
-          name: seu-politico-db
-          property: connectionString
-
-databases:
-  - name: seu-politico-db
-    databaseName: seupolitico
-    user: seupolitico
-    plan: free
+        sync: false # connection string do Neon/Supabase (secreto)
+      - key: CHAVE_API_PORTAL
+        sync: false # chave do Portal da Transparência (secreto)

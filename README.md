@@ -143,6 +143,7 @@ seu-politico/
 │   │   ├── orgaosPrincipais.js # Órgãos superiores do Executivo (SIAFI)
 │   │   ├── empresas.js      # Empresas que recebem de 2+ parlamentares
 │   │   ├── poderes.js       # Dashboard: partidos, emendas e gastos por poder
+│   │   ├── warmup.js        # Pré-computação diária (mantém o cache quente)
 │   │   ├── motorAlerta.js  # Motor de suspeita (servidor — fonte única)
 │   │   └── mockData.js     # Dados fictícios (USE_MOCK=true)
 │   ├── test/
@@ -207,15 +208,29 @@ reais. Para voltar aos dados reais, troque para `USE_MOCK=false`.
 
 O projeto já vem pronto para deploy em plataformas que executam Node.
 
-### Render (recomendado — um serviço + PostgreSQL gerenciado)
+### Render (recomendado — plano gratuito)
 
-O repositório inclui um **Blueprint** (`render.yaml`) que cria o serviço web
-(Node) e o PostgreSQL automaticamente:
+O repositório inclui um **Blueprint** (`render.yaml`) para o serviço web Node
+no plano **free** do Render. O PostgreSQL usa um banco externo gratuito
+(**Neon** ou **Supabase**) — o Postgres gerenciado do Render expira em 30 dias,
+por isso não é usado.
 
-1. No Render: **New → Blueprint** e aponte para o repositório `seu-politico`.
-2. Após criar, abra o serviço web e adicione a **variável secreta**:
-   `CHAVE_API_PORTAL` (sua chave do Portal da Transparência).
-3. O schema do banco é **aplicado automaticamente** no boot do servidor.
+**Passo a passo gratuito:**
+
+1. Crie um projeto no **Neon** (https://neon.tech, plano free) e copie a
+   *connection string* (`postgres://...`).
+2. No Render: **New → Blueprint** e aponte para o repositório `seu-politico`.
+3. Abra o serviço web e preencha as **variáveis secretas**:
+   - `DATABASE_URL` → a conexão do Neon;
+   - `CHAVE_API_PORTAL` → sua chave do Portal da Transparência.
+4. O **schema** do banco é aplicado automaticamente no boot (ou manualmente:
+   `cd backend && npm run schema`).
+5. O servidor tem **warm-up automático**: no boot e a cada 24h ele
+   pré-computa cotas, CEAPS, o dashboard "Partidos e Poderes" e as empresas
+   recorrentes — mantendo o cache quente para os usuários.
+6. O Render free "dorme" após 15 min de inatividade. Para mantê-lo acordado,
+   crie um monitor gratuito no **UptimeRobot** (intervalo 5 min) apontando
+   para `https://SEU-SERVICO.onrender.com/api/health`.
 
 ### Railway / Fly.io / qualquer host de container
 
