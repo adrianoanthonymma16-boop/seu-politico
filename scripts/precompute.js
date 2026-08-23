@@ -2,7 +2,8 @@
    precompute.js — Script de pré-computação diária para JSONs estáticos
    --------------------------------------------------------------------------
    Executa via Vercel Cron (diário 03:00 UTC) ou manualmente (npm run precompute).
-   Gera arquivos em /public/data/ servidos pelo CDN da Vercel instantaneamente.
+   Gera arquivos em /data/ (na raiz do projeto) servidos pelo CDN da Vercel instantaneamente.
+   ATENÇÃO: não usar pasta public/ — a Vercel a trata como raiz web e deixa de servir os .html da raiz.
    - deputados.json: lista completa de 600 deputados (nome, id, partido, uf, foto)
    - analise-geral-2026.json: agregados para home/dashboard
    ========================================================================== */
@@ -16,7 +17,7 @@ const fetch = globalThis.fetch;
 const CAMARA_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 const ITENS = 100;
 const ANO_PADRAO = 2026;
-const PUBLIC_DIR = path.join(__dirname, '..', 'public', 'data');
+const PUBLIC_DIR = path.join(__dirname, '..', 'data');
 
 const AGUARDAR = (ms) => new Promise((r) => setTimeout(r, ms));
 

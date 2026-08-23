@@ -402,7 +402,7 @@ async function obterPresidente() {
     } catch (e) {
         // Fallback: arquivo estático gerado no build (evita depender da Wikipédia).
         try {
-            const dados = require(path.join(__dirname, '..', '..', 'public', 'data', 'presidente.json'));
+            const dados = require(path.join(__dirname, '..', '..', 'data', 'presidente.json'));
             return dados;
         } catch (e2) { throw e; }
     }
@@ -443,7 +443,7 @@ async function obterCandidatos() {
     } catch (e) {
         // Fallback: arquivo estático gerado no build (evita depender da Wikipédia).
         try {
-            return require(path.join(__dirname, '..', '..', 'public', 'data', 'candidatos.json'));
+            return require(path.join(__dirname, '..', '..', 'data', 'candidatos.json'));
         } catch (e2) { throw e; }
     }
 }
