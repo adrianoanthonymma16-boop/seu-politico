@@ -20,9 +20,10 @@ const mock = require('./mockData');
 
 const MOCK = process.env.USE_MOCK === 'true';
 
-const LIMITE_PAGINAS_EMENDAS = 1500;
-const LIMITE_PAGINAS_CONTRATOS = 20;
+const LIMITE_PAGINAS_EMENDAS = 10;
+const LIMITE_PAGINAS_CONTRATOS = 1;
 const TAMANHO_PAGINA_CONTRATOS = 100;
+const ORCAMENTO_PAGINAS_CONTRATOS = 12; // amostra representativa para caber no limite de 60s do serverless
 
 let computando = null; // guarda de concorrência (promessa em andamento)
 
@@ -107,9 +108,13 @@ async function agregarContratosExecutivo(ano, mes) {
 
     let total = 0;
     let contratos = 0;
+    let paginasConsumidas = 0;
     for (const orgao of ORGAOS_PRINCIPAIS) {
+        if (paginasConsumidas >= ORCAMENTO_PAGINAS_CONTRATOS) break;
         let pagina = 1;
         for (; pagina <= LIMITE_PAGINAS_CONTRATOS; pagina++) {
+            if (paginasConsumidas >= ORCAMENTO_PAGINAS_CONTRATOS) break;
+            paginasConsumidas += 1;
             const registros = await requisitarPortal('contratos', {
                 codigoOrgao: orgao.codigo, ano, pagina, paginaTamanho: TAMANHO_PAGINA_CONTRATOS,
             });

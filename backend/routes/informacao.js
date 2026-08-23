@@ -13,6 +13,7 @@ const rota = express.Router();
 /** GET /api/informacao/presidente */
 rota.get('/presidente', async (req, res) => {
     try {
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(await obterPresidente());
     } catch (erro) {
         console.error('[informacao/presidente]', erro.message);
@@ -24,6 +25,7 @@ rota.get('/presidente', async (req, res) => {
 rota.get('/presidente/gastos', async (req, res) => {
     try {
         const ano = Number(req.query.ano) || new Date().getFullYear();
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(await obterGastosPresidente(ano));
     } catch (erro) {
         console.error('[informacao/presidente/gastos]', erro.message);
@@ -35,6 +37,7 @@ rota.get('/presidente/gastos', async (req, res) => {
 rota.get('/presidente/contratos', async (req, res) => {
     try {
         const ano = Number(req.query.ano) || new Date().getFullYear();
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(await obterContratosPresidencia(ano));
     } catch (erro) {
         console.error('[informacao/presidente/contratos]', erro.message);
@@ -45,6 +48,7 @@ rota.get('/presidente/contratos', async (req, res) => {
 /** GET /api/informacao/candidatos */
 rota.get('/candidatos', async (req, res) => {
     try {
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(await obterCandidatos());
     } catch (erro) {
         console.error('[informacao/candidatos]', erro.message);

@@ -10,6 +10,7 @@
 
 const { requisitarWikipedia, requisitarPortal } = require('./proxy');
 const cache = require('./cache');
+const path = require('path');
 const { calcularResumo, gerarSinais } = require('./motorAlerta');
 
 const ARTIGO_ELEICAO = 'Eleição presidencial no Brasil em 2026';
@@ -104,7 +105,7 @@ async function obterArtigo(titulo, sentencas = 4) {
         foto: pagina.thumbnail?.source || '',
         url: WIKI_ARTIGO(pagina.title),
     };
-    await cache.gravar(chave, resultado, 24 * 3600);
+    await cache.gravar(chave, resultado, 7 * 24 * 3600);
     return resultado;
 }
 
@@ -127,7 +128,7 @@ async function obterWikitext(titulo) {
     const txt = pagina?.revisions?.[0]?.slots?.main?.['*'] || '';
     if (!txt) throw new Error(`Conteúdo de "${titulo}" não encontrado.`);
 
-    await cache.gravar(chave, txt, 6 * 3600);
+    await cache.gravar(chave, txt, 7 * 24 * 3600);
     return txt;
 }
 
@@ -235,7 +236,7 @@ async function obterViagensPresidencia(ano) {
     }
 
     viagens.sort((a, b) => (b.valorTotal || 0) - (a.valorTotal || 0));
-    await cache.gravar(chave, viagens, 6 * 3600);
+    await cache.gravar(chave, viagens, 24 * 3600);
     return viagens;
 }
 
@@ -376,60 +377,75 @@ async function obterContratosPresidencia(ano) {
         aviso: 'Contratos públicos da Presidência da República (órgãos SIAFI 20000 e 20101), publicados no Portal da Transparência.',
     };
 
-    await cache.gravar(chave, resultado, 6 * 3600);
+    await cache.gravar(chave, resultado, 24 * 3600);
     return resultado;
 }
 
 /* ---- Presidente da República ---- */
 async function obterPresidente() {
-    const artigo = await obterArtigo(ARTIGO_PRESIDENTE, 4);
-    return {
-        presidente: {
-            nome: artigo.titulo,
-            nomeComum: 'Lula',
-            partido: 'PT',
-            mandato: '2023–2026',
-            foto: artigo.foto,
-            resumo: artigo.resumo,
-            links: {
-                wikipedia: artigo.url,
-                oficial: 'https://www.gov.br/planalto',
+    try {
+        const artigo = await obterArtigo(ARTIGO_PRESIDENTE, 4);
+        return {
+            presidente: {
+                nome: artigo.titulo,
+                nomeComum: 'Lula',
+                partido: 'PT',
+                mandato: '2023–2026',
+                foto: artigo.foto,
+                resumo: artigo.resumo,
+                links: {
+                    wikipedia: artigo.url,
+                    oficial: 'https://www.gov.br/planalto',
+                },
             },
-        },
-    };
+        };
+    } catch (e) {
+        // Fallback: arquivo estático gerado no build (evita depender da Wikipédia).
+        try {
+            const dados = require(path.join(__dirname, '..', '..', 'public', 'data', 'presidente.json'));
+            return dados;
+        } catch (e2) { throw e; }
+    }
 }
 
 /* ---- Candidatos à Presidência 2026 ---- */
 async function obterCandidatos() {
-    const [artigo, wikitext] = await Promise.all([
-        obterArtigo(ARTIGO_ELEICAO, 3),
-        obterWikitext(TEMPLATE_CANDIDATOS),
-    ]);
+    try {
+        const [artigo, wikitext] = await Promise.all([
+            obterArtigo(ARTIGO_ELEICAO, 3),
+            obterWikitext(TEMPLATE_CANDIDATOS),
+        ]);
 
-    const candidatos = extrairCandidatos(wikitext).map((c) => ({
-        numero: c.numero,
-        nome: c.nome,
-        partido: c.partido,
-        vice: c.vice,
-        coligacao: c.coligacao,
-        foto: c.foto ? WIKI_COMUNS_FOTO(c.foto) : null,
-        linkWikipedia: c.nomePagina ? WIKI_ARTIGO(c.nomePagina) : artigo.url,
-    }));
+        const candidatos = extrairCandidatos(wikitext).map((c) => ({
+            numero: c.numero,
+            nome: c.nome,
+            partido: c.partido,
+            vice: c.vice,
+            coligacao: c.coligacao,
+            foto: c.foto ? WIKI_COMUNS_FOTO(c.foto) : null,
+            linkWikipedia: c.nomePagina ? WIKI_ARTIGO(c.nomePagina) : artigo.url,
+        }));
 
-    return {
-        eleicao: {
-            ano: 2026,
-            dataReferencia: '4 de outubro de 2026 (1º turno)',
-            periodoAtivo: periodoEleitoral(),
-        },
-        resumo: artigo.resumo,
-        candidatos,
-        links: {
-            wikipedia: artigo.url,
-            tse: 'https://www.tse.jus.br/eleicoes/eleicoes-2026',
-            divulgacao: 'https://divulgacandcontas.tse.jus.br',
-        },
-    };
+        return {
+            eleicao: {
+                ano: 2026,
+                dataReferencia: '4 de outubro de 2026 (1º turno)',
+                periodoAtivo: periodoEleitoral(),
+            },
+            resumo: artigo.resumo,
+            candidatos,
+            links: {
+                wikipedia: artigo.url,
+                tse: 'https://www.tse.jus.br/eleicoes/eleicoes-2026',
+                divulgacao: 'https://divulgacandcontas.tse.jus.br',
+            },
+        };
+    } catch (e) {
+        // Fallback: arquivo estático gerado no build (evita depender da Wikipédia).
+        try {
+            return require(path.join(__dirname, '..', '..', 'public', 'data', 'candidatos.json'));
+        } catch (e2) { throw e; }
+    }
 }
 
 module.exports = { obterPresidente, obterCandidatos, obterGastosPresidente, obterContratosPresidencia, periodoEleitoral };

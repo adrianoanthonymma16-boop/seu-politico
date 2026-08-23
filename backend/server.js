@@ -20,6 +20,7 @@ const rotaSenado = require('./routes/senado');
 const rotaAnalise = require('./routes/analise');
 const rotaInformacao = require('./routes/informacao');
 const rotaExport = require('./routes/export');
+const rotaAdmin = require('./routes/admin');
 const { pool, habilitado } = require('./db');
 const { contadores } = require('./services/proxy');
 
@@ -42,6 +43,16 @@ async function garantirSchema() {
 app.use(cors());
 app.use(express.json());
 
+/* Cache de borda: respostas GET de /api cacheadas na Vercel CDN por 1h,
+   com revalidação assíncrona de até 24h (stale-while-revalidate).
+   Dados públicos de transparência aceitam 1h de defasagem. */
+app.use('/api', (req, res, next) => {
+    if (req.method === 'GET') {
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    }
+    next();
+});
+
 /* Rota de saúde do servidor. */
 app.get('/api/health', (req, res) => {
     res.json({
@@ -61,6 +72,7 @@ app.use('/api/senado', rotaSenado);
 app.use('/api/analise', rotaAnalise);
 app.use('/api/informacao', rotaInformacao);
 app.use('/api/export', rotaExport);
+app.use('/api/admin', rotaAdmin);
 
 /* Arquivos estáticos do frontend (index.html, dashboard.html, src/, etc.). */
 app.use(express.static(RAIZ_FRONT));

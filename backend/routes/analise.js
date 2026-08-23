@@ -15,6 +15,8 @@ const { listarEmpresasRecorrentes } = require('../services/empresas');
 const { listarPoderes } = require('../services/poderes');
 const { calcularResumo, gerarSinais, gerarSinaisComparacao } = require('../services/motorAlerta');
 const cache = require('../services/cache');
+const { habilitado } = require('../db');
+const { obterRegistrosCota, normalizarNome } = require('../services/cotas');
 
 const rota = express.Router();
 
@@ -115,7 +117,7 @@ rota.get('/geral', async (req, res) => {
 
         const partidos = await listarPartidos();
 
-        // Amostra para agregação.
+        // Amostra para agregação — otimizado: em modo memoria (Vercel) usa o arquivo de cota direto, sem 40 chamadas à Câmara.
         const amostra = primeiro.dados.slice(0, AMOSTRA);
 
         const todasDespesas = [];
@@ -125,19 +127,87 @@ rota.get('/geral', async (req, res) => {
         const contagemPorPartido = {};
         const contagemPorUf = {};
 
-        for (const dep of amostra) {
-            const despesas = await obterTodasDespesas(dep.id, ano);
-            const resumo = calcularResumo(despesas);
-            const sinais = gerarSinais(despesas, resumo, { nomePolitico: dep.nome });
-            todasDespesas.push(...despesas);
-            sinaisAmostra.push({ dep, sinais });
-
-            const partido = dep.partido || '—';
-            const uf = dep.uf || '—';
-            totaisPorPartido[partido] = (totaisPorPartido[partido] || 0) + resumo.total;
-            totaisPorUf[uf] = (totaisPorUf[uf] || 0) + resumo.total;
-            contagemPorPartido[partido] = (contagemPorPartido[partido] || 0) + 1;
-            contagemPorUf[uf] = (contagemPorUf[uf] || 0) + 1;
+        // Fast path: sem Postgres e sem mock, lê o zip da cota uma vez e distribui (1 download vs 40 API calls)
+        const usarCotaDireto = !habilitado && !MOCK;
+        if (usarCotaDireto) {
+            try {
+                const registros = await obterRegistrosCota(ano);
+                // Índice nome normalizado → lista de despesas normalizadas do arquivo
+                const porNome = new Map();
+                for (const r of registros) {
+                    const nomeNorm = normalizarNome(r.nomeParlamentar);
+                    if (!porNome.has(nomeNorm)) porNome.set(nomeNorm, []);
+                    porNome.get(nomeNorm).push({
+                        ano: Number(r.ano) || ano,
+                        mes: Number(r.mes) || null,
+                        tipo: r.descricao || `Cota ${r.numeroSubCota}`,
+                        data: String(r.dataEmissao || '').slice(0, 10),
+                        valor: Number(r.valorLiquido ?? r.valorDocumento) || 0,
+                        fornecedor: r.fornecedor || 'Não informado',
+                        cnpjCpf: String(r.cnpjCPF || '').replace(/[.\-\/]/g, '').trim(),
+                        documento: r.idDocumento || '',
+                        url: r.urlDocumento || '',
+                    });
+                }
+                for (const dep of amostra) {
+                    const nomeNorm = normalizarNome(dep.nome);
+                    let despesas = porNome.get(nomeNorm) || [];
+                    if (!despesas.length) {
+                        // tenta match parcial (nome curto vs nome completo)
+                        for (const [k, v] of porNome.entries()) {
+                            if (k.includes(nomeNorm) || nomeNorm.includes(k)) { despesas = v; break; }
+                        }
+                    }
+                    const resumo = calcularResumo(despesas);
+                    const sinais = gerarSinais(despesas, resumo, { nomePolitico: dep.nome });
+                    todasDespesas.push(...despesas);
+                    sinaisAmostra.push({ dep, sinais });
+                    const partido = dep.partido || '—';
+                    const uf = dep.uf || '—';
+                    totaisPorPartido[partido] = (totaisPorPartido[partido] || 0) + resumo.total;
+                    totaisPorUf[uf] = (totaisPorUf[uf] || 0) + resumo.total;
+                    contagemPorPartido[partido] = (contagemPorPartido[partido] || 0) + 1;
+                    contagemPorUf[uf] = (contagemPorUf[uf] || 0) + 1;
+                }
+            } catch (e) {
+                console.warn('[analise/geral] cota direto falhou, caindo para loop paralelo:', e.message);
+                // fallback para loop paralelo abaixo
+                for (const dep of amostra) {
+                    const despesas = await obterTodasDespesas(dep.id, ano);
+                    const resumo = calcularResumo(despesas);
+                    const sinais = gerarSinais(despesas, resumo, { nomePolitico: dep.nome });
+                    todasDespesas.push(...despesas);
+                    sinaisAmostra.push({ dep, sinais });
+                    const partido = dep.partido || '—';
+                    const uf = dep.uf || '—';
+                    totaisPorPartido[partido] = (totaisPorPartido[partido] || 0) + resumo.total;
+                    totaisPorUf[uf] = (totaisPorUf[uf] || 0) + resumo.total;
+                    contagemPorPartido[partido] = (contagemPorPartido[partido] || 0) + 1;
+                    contagemPorUf[uf] = (contagemPorUf[uf] || 0) + 1;
+                }
+            }
+        } else {
+            // Caminho com Postgres/mock: paraleliza em lotes de 5 para respeitar 120 RPM e ser ~4x mais rápido
+            const tamanhoLote = 5;
+            for (let i = 0; i < amostra.length; i += tamanhoLote) {
+                const lote = amostra.slice(i, i + tamanhoLote);
+                const resultados = await Promise.all(lote.map(async (dep) => {
+                    const despesas = await obterTodasDespesas(dep.id, ano);
+                    const resumo = calcularResumo(despesas);
+                    const sinais = gerarSinais(despesas, resumo, { nomePolitico: dep.nome });
+                    return { dep, despesas, resumo, sinais };
+                }));
+                for (const { dep, despesas, resumo, sinais } of resultados) {
+                    todasDespesas.push(...despesas);
+                    sinaisAmostra.push({ dep, sinais });
+                    const partido = dep.partido || '—';
+                    const uf = dep.uf || '—';
+                    totaisPorPartido[partido] = (totaisPorPartido[partido] || 0) + resumo.total;
+                    totaisPorUf[uf] = (totaisPorUf[uf] || 0) + resumo.total;
+                    contagemPorPartido[partido] = (contagemPorPartido[partido] || 0) + 1;
+                    contagemPorUf[uf] = (contagemPorUf[uf] || 0) + 1;
+                }
+            }
         }
 
         const resumo = calcularResumo(todasDespesas);
@@ -187,6 +257,8 @@ rota.get('/geral', async (req, res) => {
         };
 
         await cache.gravar(chave, resultado, 24 * 3600); // 1x/dia — protege o limite da Câmara
+        // Cache de borda explícito (fallback se middleware não aplicar)
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[analise/geral]', erro.message);
@@ -194,11 +266,19 @@ rota.get('/geral', async (req, res) => {
     }
 });
 
-/** GET /api/analise/deputado/:id?ano= */
+/** GET /api/analise/deputado/:id?ano=&nome=&partido=&uf= */
 rota.get('/deputado/:id', async (req, res) => {
     const ano = Number(req.query.ano) || ANO_PADRAO();
     try {
-        const deputado = await obterDeputado(req.params.id);
+        // Se o frontend já passou nome/partido/uf (evita chamada à Câmara de 5s).
+        const dadosLista = req.query.nome ? {
+            id: Number(req.params.id),
+            nome: decodeURIComponent(req.query.nome),
+            partido: decodeURIComponent(req.query.partido || '—'),
+            uf: decodeURIComponent(req.query.uf || '—'),
+        } : null;
+
+        const deputado = await obterDeputado(req.params.id, dadosLista);
         if (!deputado) return res.status(404).json({ erro: 'Parlamentar não encontrado.' });
 
         const despesas = await obterTodasDespesas(req.params.id, ano);
@@ -212,6 +292,7 @@ rota.get('/deputado/:id', async (req, res) => {
             mediaUf,
         });
 
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({
             deputado,
             ano,
@@ -238,48 +319,43 @@ rota.get('/comparar', async (req, res) => {
         const parlamentares = [];
         const categoriasMap = {};
 
-        for (const ref of ids) {
+        // Paraleliza o processamento dos parlamentares (antes sequencial ~15-30s).
+        const resultados = await Promise.all(ids.map(async (ref) => {
             const tipo = ref.includes(':') ? ref.split(':')[0] : 'dep';
             const id = ref.includes(':') ? ref.slice(ref.indexOf(':') + 1) : ref;
             let registro = null;
 
             if (tipo === 'sen') {
                 const senador = await senado.obterSenador(id);
-                if (!senador) continue;
+                if (!senador) return null;
 
                 const despesas = await obterDespesasDoSenador(senador.id, ano);
                 const resumo = calcularResumo(despesas);
-
-                for (const cat of resumo.categorias) {
-                    if (!categoriasMap[cat.tipo]) categoriasMap[cat.tipo] = {};
-                    categoriasMap[cat.tipo][`sen:${senador.id}`] = cat.valor;
-                }
-
-                registro = {
-                    id: `sen:${senador.id}`,
-                    nome: senador.nome,
-                    partido: senador.partido,
-                    uf: senador.uf,
-                    urlFoto: senador.urlFoto || '',
-                    cargo: 'Senador',
-                    total: resumo.total,
-                    media: resumo.media,
-                    quantidade: resumo.quantidade,
-                    categoriaPrincipal: resumo.categorias[0] ? resumo.categorias[0].tipo : '—',
+                return {
+                    registro: {
+                        id: `sen:${senador.id}`,
+                        nome: senador.nome,
+                        partido: senador.partido,
+                        uf: senador.uf,
+                        urlFoto: senador.urlFoto || '',
+                        cargo: 'Senador',
+                        total: resumo.total,
+                        media: resumo.media,
+                        quantidade: resumo.quantidade,
+                        categoriaPrincipal: resumo.categorias[0] ? resumo.categorias[0].tipo : '—',
+                    },
+                    categorias: resumo.categorias,
+                    prefixo: `sen:${senador.id}`,
                 };
-            } else {
-                const deputado = await obterDeputado(id);
-                if (!deputado) continue;
+            }
 
-                const despesas = await obterTodasDespesas(id, ano);
-                const resumo = calcularResumo(despesas);
+            const deputado = await obterDeputado(id);
+            if (!deputado) return null;
 
-                for (const cat of resumo.categorias) {
-                    if (!categoriasMap[cat.tipo]) categoriasMap[cat.tipo] = {};
-                    categoriasMap[cat.tipo][`dep:${deputado.id}`] = cat.valor;
-                }
-
-                registro = {
+            const despesas = await obterTodasDespesas(id, ano);
+            const resumo = calcularResumo(despesas);
+            return {
+                registro: {
                     id: `dep:${deputado.id}`,
                     nome: deputado.nome,
                     partido: deputado.partido,
@@ -290,15 +366,25 @@ rota.get('/comparar', async (req, res) => {
                     media: resumo.media,
                     quantidade: resumo.quantidade,
                     categoriaPrincipal: resumo.categorias[0] ? resumo.categorias[0].tipo : '—',
-                };
-            }
+                },
+                categorias: resumo.categorias,
+                prefixo: `dep:${deputado.id}`,
+            };
+        }));
 
-            if (registro) parlamentares.push(registro);
+        for (const r of resultados) {
+            if (!r) continue;
+            parlamentares.push(r.registro);
+            for (const cat of r.categorias) {
+                if (!categoriasMap[cat.tipo]) categoriasMap[cat.tipo] = {};
+                categoriasMap[cat.tipo][r.prefixo] = cat.valor;
+            }
         }
 
         const categorias = Object.entries(categoriasMap).map(([tipo, valores]) => ({ tipo, valores }));
         const sinais = gerarSinaisComparacao(parlamentares);
 
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({ ano, deputados: parlamentares, categorias, sinais });
     } catch (erro) {
         console.error('[analise/comparar]', erro.message);

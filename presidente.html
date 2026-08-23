@@ -89,6 +89,15 @@
                     </button>
                 </div>
 
+                <div class="card" style="text-align:center;padding:24px;margin-bottom:18px;" id="cartaoLazyGastos">
+                    <p style="color:var(--text-secondary);margin-bottom:12px;">
+                        As viagens são buscadas no Portal da Transparência (pode levar alguns segundos).
+                    </p>
+                    <button class="btn btn-sm" id="btnCarregarGastosPresidente" type="button">
+                        <i class="fa-solid fa-plane" aria-hidden="true"></i> Carregar análise de gastos
+                    </button>
+                </div>
+
                 <div id="sinaisGastosPresidente" aria-live="polite"></div>
 
                 <section aria-label="Indicadores de viagens" style="margin:16px 0;">
@@ -210,6 +219,15 @@
                     <p class="page-subtitle">
                         Contratos públicos da Presidência da República (Portal da Transparência), com todas as despesas e comprovante.
                     </p>
+
+                    <div class="card" style="text-align:center;padding:24px;margin-bottom:18px;" id="cartaoLazyContratos">
+                        <p style="color:var(--text-secondary);margin-bottom:12px;">
+                            Os contratos são buscados no Portal da Transparência (pode levar alguns segundos).
+                        </p>
+                        <button class="btn btn-sm" id="btnCarregarContratosPresidente" type="button">
+                            <i class="fa-solid fa-file-signature" aria-hidden="true"></i> Carregar contratos
+                        </button>
+                    </div>
 
                     <div id="sinaisContratosPresidente" aria-live="polite"></div>
                     <div id="topFornecedoresPresidente" aria-live="polite"></div>

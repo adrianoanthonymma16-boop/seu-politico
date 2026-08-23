@@ -72,6 +72,7 @@ rota.get('/orgaos', async (req, res) => {
             lista = lista.filter((o) => normalizar(o.descricao).includes(q));
         }
         lista.sort((a, b) => a.descricao.localeCompare(b.descricao));
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({ dados: lista, total: lista.length });
     } catch (erro) {
         responderProxy(res, erro);
@@ -94,6 +95,7 @@ rota.get('/contratos', async (req, res) => {
 
         const resultado = { dados: normalizados, total: normalizados.length };
         await cache.gravar(chave, resultado, 6 * 3600);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         responderProxy(res, erro);

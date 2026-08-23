@@ -33,3 +33,5 @@ build/
 # Outros
 coverage/
 continueOpencode.txt
+.vercel
+.env*

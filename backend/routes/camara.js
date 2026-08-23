@@ -12,7 +12,7 @@ const rota = express.Router();
 /* ---- Normalização de uma votação do deputado (API da Câmara) ---- */
 
 /* Nº de votações de plenário mais recentes analisadas por deputado/ano. */
-const LIMITE_VOTACOES = 12;
+const LIMITE_VOTACOES = 5;
 
 /* A API de votações exige períodos de até 3 meses — dividimos o ano em trimestres. */
 function fatiasDoAno(ano) {
@@ -74,8 +74,9 @@ async function obterVotacoesDoDeputado(deputadoId, ano) {
         if (plenario.length >= LIMITE_VOTACOES) break;
     }
 
-    const registros = [];
-    for (const v of plenario) {
+    // Busca os votos de cada votação em paralelo (respeitando o rate limit).
+    // Reduz de ~16 chamadas sequenciais (~80s) para um lote único.
+    const registros = await Promise.all(plenario.map(async (v) => {
         let voto = 'Não votou';
         try {
             const votos = await proxy.requisitarCamara(`votacoes/${v.id}/votos`);
@@ -88,15 +89,15 @@ async function obterVotacoesDoDeputado(deputadoId, ano) {
         }
 
         const propSigla = v.proposicaoObjeto;
-        registros.push({
+        return {
             idVotacao: v.id,
             data: v.data || '',
             orgao: v.siglaOrgao || 'PLEN',
             titulo: propSigla || (v.descricao || 'Votação em plenário'),
             ementa: v.descricao || '',
             voto,
-        });
-    }
+        };
+    }));
 
     return { dados: registros, links: { pagina: 1, ultima: 1 } };
 }
@@ -151,6 +152,7 @@ rota.get('/deputados', async (req, res) => {
     try {
         const { nome, siglaPartido, siglaUf, pagina = 1 } = req.query;
         const resultado = await buscarDeputados({ nome, siglaPartido, siglaUf, pagina });
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[camara/deputados]', erro.message);
@@ -163,6 +165,7 @@ rota.get('/deputado/:id', async (req, res) => {
     try {
         const deputado = await obterDeputado(req.params.id);
         if (!deputado) return res.status(404).json({ erro: 'Parlamentar não encontrado.' });
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({ dados: [deputado] });
     } catch (erro) {
         console.error('[camara/deputado]', erro.message);
@@ -228,6 +231,7 @@ rota.get('/votacoes/recentes', async (req, res) => {
 
         const resultado = { dados, links: { pagina, ultima } };
         await cache.gravar(chave, resultado, 6 * 3600);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[camara/votacoes/recentes]', erro.message);
@@ -271,6 +275,7 @@ rota.get('/proposicao', async (req, res) => {
             autor: primeira.autor ? (primeira.autor.nome || '') : '',
         };
         await cache.gravar(chave, resultado, 24 * 3600);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[camara/proposicao]', erro.message);
@@ -303,6 +308,7 @@ rota.get('/proposicao/:id/votacoes', async (req, res) => {
         }));
         const resultado = { dados, links: r.links || {} };
         await cache.gravar(chave, resultado, 12 * 3600);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[camara/proposicao/votacoes]', erro.message);
@@ -314,6 +320,7 @@ rota.get('/proposicao/:id/votacoes', async (req, res) => {
 rota.get('/deputado/:id/discursos', async (req, res) => {
     try {
         const ano = Number(req.query.ano) || new Date().getFullYear();
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(await obterDiscursos(req.params.id, ano));
     } catch (erro) {
         console.error('[camara/discursos]', erro.message);
@@ -326,6 +333,7 @@ rota.get('/deputado/:id/frequencia', async (req, res) => {
     try {
         const ano = Number(req.query.ano) || new Date().getFullYear();
         const resultado = await obterFrequencia(req.params.id, ano);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[camara/frequencia]', erro.message);
@@ -370,6 +378,7 @@ rota.get('/deputado/:id/despesas', async (req, res) => {
                 return resultado;
             })());
 
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resposta);
     } catch (erro) {
         console.error('[camara/despesas]', erro.message);
@@ -397,6 +406,7 @@ rota.get('/deputado/:id/votacoes/busca', async (req, res) => {
 
         const resultado = await buscarVotacoesDeputado(req.params.id, q);
         await cache.gravar(chave, resultado, 6 * 3600);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[camara/votacoes/busca]', erro.message);
@@ -421,7 +431,8 @@ rota.get('/deputado/:id/votacoes', async (req, res) => {
         if (cached) return res.json(cached);
 
         const resultado = await obterVotacoesDoDeputado(req.params.id, anoNum);
-        await cache.gravar(chave, resultado, 6 * 3600);
+        await cache.gravar(chave, resultado, 24 * 3600);
+        res.set('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[camara/votacoes]', erro.message);
@@ -489,6 +500,7 @@ rota.get('/votacao/:idVotacao', async (req, res) => {
             links: { pagina: 1, ultima: 1 },
         };
         await cache.gravar(chave, resultado, 12 * 3600);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[camara/votacao]', erro.message);
@@ -500,6 +512,7 @@ rota.get('/votacao/:idVotacao', async (req, res) => {
 rota.get('/partidos', async (req, res) => {
     try {
         const dados = await listarPartidos();
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({ dados });
     } catch (erro) {
         console.error('[camara/partidos]', erro.message);

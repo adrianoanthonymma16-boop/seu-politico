@@ -1017,6 +1017,28 @@ footer {
     }
 }
 
+/* Backdrop do menu mobile (criado via JS se não existir) */
+.menu-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    top: var(--header-height);
+    background: rgba(0, 0, 0, 0.38);
+    z-index: 89;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(2px);
+}
+
+.menu-backdrop.visivel {
+    display: block;
+    opacity: 1;
+}
+
+body.menu-aberto {
+    overflow: hidden;
+}
+
 @media (max-width: 768px) {
     .page-layout {
         grid-template-columns: 1fr;
@@ -1045,21 +1067,38 @@ footer {
         max-width: 100%;
     }
 
-    /* Menu lateral vira menu suspenso */
+    /* Menu lateral vira drawer mobile com animação suave */
     .menu-toggle {
         display: inline-flex;
-        background: none;
-        border: none;
-        font-size: 24px;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-main);
+        border: 2px solid var(--border-light);
+        border-radius: var(--radius);
+        font-size: 20px;
         color: var(--text-primary);
         cursor: pointer;
-        padding: 6px;
+        width: 44px;
+        height: 44px;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+    }
+
+    .menu-toggle:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: var(--bg-surface);
+    }
+
+    .menu-toggle:active {
+        transform: scale(0.96);
     }
 
     .menu-toggle-label {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        width: 100%;
     }
 
     aside {
@@ -1071,15 +1110,28 @@ footer {
         min-height: 0;
         max-height: 0;
         overflow: hidden;
-        transition: max-height 0.35s ease;
+        transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
         border-right: none;
-        border-bottom: 0.5px solid var(--border-light);
+        border-bottom: 1px solid var(--border-light);
+        background: var(--bg-sidebar);
+        /* Evita que o conteúdo "vaze" durante a animação */
+        will-change: max-height;
     }
 
     aside.aberto {
-        max-height: 70vh;
+        max-height: calc(100dvh - var(--header-height));
+        max-height: calc(100vh - var(--header-height));
         overflow-y: auto;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+        -webkit-overflow-scrolling: touch;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.14);
+        overscroll-behavior: contain;
+    }
+
+    /* Links do menu com área de toque maior (44px mínimo - WCAG) */
+    aside nav ul li a {
+        padding: 14px 18px;
+        min-height: 44px;
+        font-size: 15px;
     }
 
     .main-content {

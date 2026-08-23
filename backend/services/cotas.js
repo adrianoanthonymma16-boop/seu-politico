@@ -50,14 +50,23 @@ function normalizarDespesaCota(r) {
 
 /**
  * Baixa e retorna os registros crus do arquivo oficial de cotas do ano.
+ * O array inteiro (~81MB) excede o limite de 10MB do Upstash, então é
+ * armazenado em chunks de ~30k registros (~7MB). Reconstrução em ~11 GETs.
  * Reutilizado pela sincronização (PostgreSQL) e por outras análises.
  * @param {number} ano
  * @returns {Promise<Array>} registros crus do arquivo
  */
 async function obterRegistrosCota(ano) {
-    const chaveCache = `cotas:registros:${ano}`;
-    const cached = await cache.obter(chaveCache);
-    if (cached) return cached;
+    const chaveMeta = `cotas:reg-meta:${ano}`;
+    const meta = await cache.obter(chaveMeta);
+    if (meta && meta.chunks) {
+        const partes = [];
+        for (let i = 0; i < meta.chunks; i++) {
+            const parte = await cache.obter(`cotas:reg-c:${ano}:${i}`);
+            if (parte) partes.push(...parte);
+        }
+        if (partes.length) return partes;
+    }
 
     const url = `${BASE_COTAS}/Ano-${ano}.json.zip`;
     const resposta = await fetch(url, { signal: AbortSignal.timeout(240000) });
@@ -78,7 +87,12 @@ async function obterRegistrosCota(ano) {
     fs.rmSync(zipPath, { force: true });
     const registros = Array.isArray(dados) ? dados : dados.dados || [];
 
-    await cache.gravar(chaveCache, registros, 12 * 3600);
+    // Armazena em chunks (~30k registros ≈ ~7MB cada) — cabe no limite de 8MB do Upstash.
+    const TAMANHO_CHUNK = 30000;
+    for (let i = 0; i < registros.length; i += TAMANHO_CHUNK) {
+        await cache.gravar(`cotas:reg-c:${ano}:${Math.floor(i / TAMANHO_CHUNK)}`, registros.slice(i, i + TAMANHO_CHUNK), 12 * 3600);
+    }
+    await cache.gravar(chaveMeta, { chunks: Math.ceil(registros.length / TAMANHO_CHUNK) }, 12 * 3600);
     return registros;
 }
 
@@ -142,29 +156,111 @@ async function sincronizarAno(ano) {
 }
 
 /**
+ * Índice de despesas por id do deputado (numeroDeputadoID) para um ano.
+ * Grava cada deputado em uma chave Upstash pequena (`cotas:dep:{id}:{ano}`),
+ * pois o índice completo (~29MB) excede o limite de 10MB do Upstash.
+ * @param {number} ano
+ * @returns {Promise<Object<string, Array>>} mapa { [numeroDeputadoID]: despesas[] }
+ */
+async function obterIndiceDespesasPorId(ano) {
+    const chaveLista = `cotas:ids:${ano}`;
+    const idsCacheados = await cache.obter(chaveLista);
+    if (idsCacheados) {
+        const indice = {};
+        for (const id of idsCacheados) {
+            const desp = await cache.obter(`cotas:dep:${id}:${ano}`);
+            if (desp) indice[id] = desp;
+        }
+        if (Object.keys(indice).length > 0) return indice;
+    }
+
+    const registros = await obterRegistrosCota(ano);
+    const indice = {};
+    const ids = [];
+    for (const r of registros) {
+        const id = Number(r.numeroDeputadoID);
+        if (!id) continue;
+        if (!indice[id]) { indice[id] = []; ids.push(id); }
+        indice[id].push(normalizarDespesaCota(r));
+    }
+
+    // Grava cada deputado em chave própria (pequena) — sobrevive no Upstash.
+    for (const id of ids) {
+        await cache.gravar(`cotas:dep:${id}:${ano}`, indice[id], 7 * 24 * 3600);
+    }
+    await cache.gravar(chaveLista, ids, 7 * 24 * 3600);
+    return indice;
+}
+
+/**
+ * Despesas de cota de um deputado por id (numeroDeputadoID) — lookup único.
+ * @param {number} id
+ * @param {number} ano
+ * @returns {Promise<Array|null>}
+ */
+async function obterDespesasPorIdDeputado(id, ano) {
+    const chave = `cotas:dep:${id}:${ano}`;
+    const cached = await cache.obter(chave);
+    if (cached) return cached;
+    const indice = await obterIndiceDespesasPorId(ano);
+    return indice[String(id)] || [];
+}
+
+/**
  * Busca as despesas de cota de um parlamentar (pelo nome) em um ano.
  * @param {string} nomeParlamentar nome como na API REST de deputados
  * @param {number} ano
  * @returns {Promise<Array|null>} despesas normalizadas, ou null se não achou
  */
 async function obterDespesasDeCota(nomeParlamentar, ano) {
-    if (!habilitado) return null;
-
-    let indice = await cache.obter(`cotas:indice:${ano}`);
-    if (!indice) {
-        await sincronizarAno(ano);
-        indice = await cache.obter(`cotas:indice:${ano}`);
+    // 1) Tenta via PostgreSQL (se configurado) — caminho rápido.
+    if (habilitado) {
+        let indice = await cache.obter(`cotas:indice:${ano}`);
+        if (!indice) {
+            try {
+                await sincronizarAno(ano);
+                indice = await cache.obter(`cotas:indice:${ano}`);
+            } catch (e) {
+                console.warn('[cotas] sincronizarAno falhou, caindo para arquivo direto:', e.message);
+            }
+        }
+        if (indice) {
+            const deputadoId = indice[normalizarNome(nomeParlamentar)];
+            if (deputadoId) {
+                try {
+                    const { rows } = await pool.query(
+                        'SELECT dados FROM despesas_parlamentares WHERE deputado_id = $1 AND ano = $2',
+                        [deputadoId, Number(ano)]
+                    );
+                    if (rows.length) return rows[0].dados;
+                } catch (e) {
+                    console.warn('[cotas] query PG falhou, caindo para arquivo direto:', e.message);
+                }
+            }
+        }
     }
-    if (!indice) return null;
 
-    const deputadoId = indice[normalizarNome(nomeParlamentar)];
-    if (!deputadoId) return null;
-
-    const { rows } = await pool.query(
-        'SELECT dados FROM despesas_parlamentares WHERE deputado_id = $1 AND ano = $2',
-        [deputadoId, Number(ano)]
-    );
-    return rows.length ? rows[0].dados : [];
+    // 2) Fallback sem banco: lê o arquivo oficial direto (igual /api/analise/empresas).
+    //    Funciona em Vercel com banco "memoria" e resolve o R$ 0,00 do perfil.
+    try {
+        const registros = await obterRegistrosCota(ano);
+        const alvo = normalizarNome(nomeParlamentar);
+        // Filtra por nome exato normalizado (ex.: "ACACIO DA SILVA FAVACHO NETO" → "ACACIO FAVACHO")
+        // O arquivo usa nome completo, a API REST usa nome curto — tentamos ambos.
+        let filtrados = registros.filter((r) => normalizarNome(r.nomeParlamentar) === alvo);
+        if (!filtrados.length) {
+            // Tenta match parcial: um contém o outro (ex.: "ACACIO FAVACHO" está em "ACACIO DA SILVA FAVACHO NETO")
+            filtrados = registros.filter((r) => {
+                const nomeArquivo = normalizarNome(r.nomeParlamentar);
+                return nomeArquivo.includes(alvo) || alvo.includes(nomeArquivo);
+            });
+        }
+        if (!filtrados.length) return [];
+        return filtrados.map(normalizarDespesaCota);
+    } catch (erro) {
+        console.warn('[cotas] fallback arquivo direto falhou:', erro.message);
+        return null;
+    }
 }
 
-module.exports = { sincronizarAno, obterDespesasDeCota, obterRegistrosCota, normalizarNome };
+module.exports = { sincronizarAno, obterDespesasDeCota, obterRegistrosCota, obterIndiceDespesasPorId, obterDespesasPorIdDeputado, normalizarNome };

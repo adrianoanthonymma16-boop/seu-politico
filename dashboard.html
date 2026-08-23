@@ -154,39 +154,44 @@
                     </select>
                 </div>
 
-                <!-- Cards por poder -->
-                <div class="card-grid" id="porPoderCards">
-                    <div class="carregando" style="grid-column:1/-1;"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando gastos por poder...</p></div>
-                </div>
-
-                <!-- Gráficos -->
-                <div class="card-grid" style="margin-top:18px;">
-                    <div class="chart-box" style="min-height:220px;">
-                        <canvas id="graficoPoderesPoderes" aria-label="Gráfico de barras de gastos por poder" role="img"></canvas>
+                <!-- Painel Partidos e Poderes (lazy load: agregado pesado) -->
+                <div id="painelPoderes">
+                    <div class="card" style="text-align:center;padding:24px;margin-bottom:14px;">
+                        <p style="color:var(--text-secondary);margin-bottom:12px;">
+                            O painel "Partidos e Poderes" agrega emendas e contratos do Executivo (pode levar alguns segundos).
+                            Carregue sob demanda para não atrasar o dashboard.
+                        </p>
+                        <button class="btn btn-sm" id="btnCarregarPoderes" type="button">
+                            <i class="fa-solid fa-chart-column" aria-hidden="true"></i> Carregar Partidos e Poderes
+                        </button>
                     </div>
-                    <div class="chart-box" style="min-height:220px;">
-                        <canvas id="graficoPoderesPartidos" aria-label="Gráfico de barras de gastos por partido" role="img"></canvas>
+                    <div class="card-grid" id="porPoderCards"></div>
+                    <div class="card-grid" style="margin-top:18px;">
+                        <div class="chart-box" style="min-height:220px;">
+                            <canvas id="graficoPoderesPoderes" aria-label="Gráfico de barras de gastos por poder" role="img"></canvas>
+                        </div>
+                        <div class="chart-box" style="min-height:220px;">
+                            <canvas id="graficoPoderesPartidos" aria-label="Gráfico de barras de gastos por partido" role="img"></canvas>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Tabela por partido -->
-                <h4 style="margin-top:20px;"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Partidos — composição, gastos e emendas</h4>
-                <div class="tabela-wrapper" style="margin-top:8px;">
-                    <table class="tabela">
-                        <thead>
-                            <tr>
-                                <th>Partido</th>
-                                <th>Deputados</th>
-                                <th>Senadores</th>
-                                <th>Cota (Câmara)</th>
-                                <th>CEAPS (Senado)</th>
-                                <th>Emendas (pago)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoPoderesPartidos">
-                            <tr><td colspan="6" class="carregando">Carregando...</td></tr>
-                        </tbody>
-                    </table>
+                    <h4 style="margin-top:20px;"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Partidos — composição, gastos e emendas</h4>
+                    <div class="tabela-wrapper" style="margin-top:8px;">
+                        <table class="tabela">
+                            <thead>
+                                <tr>
+                                    <th>Partido</th>
+                                    <th>Deputados</th>
+                                    <th>Senadores</th>
+                                    <th>Cota (Câmara)</th>
+                                    <th>CEAPS (Senado)</th>
+                                    <th>Emendas (pago)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpoPoderesPartidos">
+                                <tr><td colspan="6" class="carregando">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 

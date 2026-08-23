@@ -65,8 +65,8 @@
             <div class="card" style="margin:14px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <label for="seletorAnoDeputado" style="font-weight:600;"><i class="fa-solid fa-calendar" aria-hidden="true"></i> Ano de referência:</label>
                 <select id="seletorAnoDeputado" aria-label="Selecionar ano de referência">
-                    <option value="2026">2026</option>
-                    <option value="2025" selected>2025</option>
+                    <option value="2026" selected>2026</option>
+                    <option value="2025">2025</option>
                     <option value="2024">2024</option>
                     <option value="2023">2023</option>
                     <option value="2022">2022</option>
@@ -222,9 +222,13 @@
                     </button>
                 </div>
                 <div id="listaVotacoes" aria-live="polite">
-                    <div class="carregando">
-                        <i class="fa-solid fa-circle-notch" aria-hidden="true"></i>
-                        <p>Carregando votações...</p>
+                    <div class="card" style="text-align:center;padding:24px;">
+                        <p style="color:var(--text-secondary);margin-bottom:12px;">
+                            O histórico de votações é buscado na API da Câmara (pode levar alguns segundos).
+                        </p>
+                        <button class="btn btn-sm" type="button" data-carregar-votacoes>
+                            <i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Carregar votações
+                        </button>
                     </div>
                 </div>
             </section>

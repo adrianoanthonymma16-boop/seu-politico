@@ -67,6 +67,7 @@ async function obterDespesasDoSenador(id, ano) {
 rota.get('/senadores', async (req, res) => {
     try {
         const { nome, partido, uf } = req.query;
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(await listarSenadores({ nome, partido, uf }));
     } catch (erro) {
         console.error('[senado/senadores]', erro.message);
@@ -79,6 +80,7 @@ rota.get('/senador/:id', async (req, res) => {
     try {
         const senador = await obterSenador(req.params.id);
         if (!senador) return res.status(404).json({ erro: 'Senador não encontrado.' });
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({ dados: [senador] });
     } catch (erro) {
         console.error('[senado/senador]', erro.message);
@@ -133,6 +135,7 @@ rota.get('/votacoes/recentes', async (req, res) => {
         }
 
         const inicio = (pagina - 1) * limite;
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({
             dados: todos.slice(inicio, inicio + limite),
             links: { pagina, ultima: Math.max(1, Math.ceil(todos.length / limite)) },
@@ -148,6 +151,7 @@ rota.get('/senador/:id/frequencia', async (req, res) => {
     try {
         const ano = Number(req.query.ano) || ANO_PADRAO();
         const resultado = await obterFrequenciaVotacoes(req.params.id, ano);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[senado/frequencia]', erro.message);
@@ -159,6 +163,7 @@ rota.get('/senador/:id/frequencia', async (req, res) => {
 rota.get('/senador/:id/discursos', async (req, res) => {
     try {
         const ano = Number(req.query.ano) || ANO_PADRAO();
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(await obterDiscursosSenador(req.params.id, ano));
     } catch (erro) {
         console.error('[senado/discursos]', erro.message);
@@ -171,6 +176,7 @@ rota.get('/senador/:id/votacoes', async (req, res) => {
     try {
         const ano = Number(req.query.ano) || ANO_PADRAO();
         const resultado = await obterVotacoesSenador(req.params.id, ano);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[senado/votacoes]', erro.message);
@@ -182,6 +188,7 @@ rota.get('/senador/:id/votacoes', async (req, res) => {
 rota.get('/votacao/:sessao/:votacao', async (req, res) => {
     try {
         const resultado = await obterDetalheVotacaoSenado(req.params.sessao, req.params.votacao);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(resultado);
     } catch (erro) {
         console.error('[senado/votacao]', erro.message);
@@ -199,6 +206,7 @@ rota.get('/despesas/:id', async (req, res) => {
         const todas = await obterDespesasDoSenador(req.params.id, ano);
         const inicio = (pagina - 1) * itens;
         const dados = todas.slice(inicio, inicio + itens);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({ dados, total: todas.length, links: { pagina, ultima: Math.max(1, Math.ceil(todas.length / itens)) } });
     } catch (erro) {
         console.error('[senado/despesas]', erro.message);
@@ -224,6 +232,7 @@ rota.get('/analise/:id', async (req, res) => {
             mediaUf,
         });
 
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json({
             senador,
             ano,

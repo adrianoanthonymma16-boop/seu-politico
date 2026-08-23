@@ -27,15 +27,55 @@
 
     const UFs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
-    // Busca TODOS os deputados (pagina por página), sem limite de 100.
-    async function buscarTodosDeputados(filtros = {}) {
+    // ---- UTILITÁRIOS DE PERFORMANCE (debounce + cache sessionStorage) ----
+    function debounce(fn, espera = 300) {
+        let timer = null;
+        let controller = null;
+        return function(...args) {
+            if (timer) clearTimeout(timer);
+            if (controller) controller.abort();
+            controller = new AbortController();
+            timer = setTimeout(() => fn.apply(this, [...args, controller.signal]), espera);
+        };
+    }
+
+    const CacheSessao = {
+        chave(filtros) { return `sp:deputados:${JSON.stringify(filtros)}`; },
+        obter(filtros, ttlMs = 30 * 60 * 1000) {
+            try {
+                const raw = sessionStorage.getItem(this.chave(filtros));
+                if (!raw) return null;
+                const { dados, ts } = JSON.parse(raw);
+                if (Date.now() - ts > ttlMs) { sessionStorage.removeItem(this.chave(filtros)); return null; }
+                return dados;
+            } catch (e) { return null; }
+        },
+        gravar(filtros, dados) {
+            try { sessionStorage.setItem(this.chave(filtros), JSON.stringify({ dados, ts: Date.now() })); } catch (e) { /* quota */ }
+        }
+    };
+
+    // Busca TODOS os deputados (página por página) — otimizado: cache + paralelo após 1ª página.
+    async function buscarTodosDeputados(filtros = {}, { usarCache = true } = {}) {
+        if (usarCache) {
+            const cached = CacheSessao.obter(filtros);
+            if (cached) return cached;
+        }
         const pagina1 = await SeuPoliticoAPI.buscarDeputados({ ...filtros, pagina: 1 });
         const dados = pagina1.dados || [];
         const ultima = (pagina1.links && pagina1.links.ultima) || 1;
-        for (let p = 2; p <= ultima; p++) {
-            const r = await SeuPoliticoAPI.buscarDeputados({ ...filtros, pagina: p });
-            dados.push(...(r.dados || []));
+        if (ultima > 1) {
+            // Paraleliza as páginas restantes em lotes de 3 para respeitar o rate limit (120 RPM ≈ 2 req/s)
+            const paginas = [];
+            for (let p = 2; p <= ultima; p++) paginas.push(p);
+            const tamanhoLote = 3;
+            for (let i = 0; i < paginas.length; i += tamanhoLote) {
+                const lote = paginas.slice(i, i + tamanhoLote);
+                const resultados = await Promise.all(lote.map((p) => SeuPoliticoAPI.buscarDeputados({ ...filtros, pagina: p })));
+                resultados.forEach((r) => dados.push(...(r.dados || [])));
+            }
         }
+        if (usarCache) CacheSessao.gravar(filtros, dados);
         return dados;
     }
 
@@ -582,10 +622,85 @@
         const botao = $('#botaoMenu');
         const menu = $('#menuLateral');
         if (!botao || !menu) return;
-        botao.addEventListener('click', () => {
-            const aberto = menu.classList.toggle('aberto');
-            botao.setAttribute('aria-expanded', String(aberto));
-            botao.setAttribute('aria-label', aberto ? 'Fechar menu de navegação' : 'Abrir menu de navegação');
+
+        // Cria backdrop para UX mobile (fecha ao clicar fora)
+        let backdrop = document.getElementById('menuBackdrop');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.id = 'menuBackdrop';
+            backdrop.className = 'menu-backdrop';
+            backdrop.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(backdrop);
+        }
+
+        const header = document.querySelector('header');
+        function atualizarAlturaHeader() {
+            if (!header) return;
+            const altura = header.offsetHeight;
+            document.documentElement.style.setProperty('--header-height', altura + 'px');
+        }
+        atualizarAlturaHeader();
+        window.addEventListener('resize', atualizarAlturaHeader);
+        if (window.ResizeObserver && header) {
+            new ResizeObserver(atualizarAlturaHeader).observe(header);
+        }
+
+        function fecharMenu() {
+            menu.classList.remove('aberto');
+            backdrop.classList.remove('visivel');
+            document.body.classList.remove('menu-aberto');
+            botao.setAttribute('aria-expanded', 'false');
+            botao.setAttribute('aria-label', 'Abrir menu de navegação');
+            botao.innerHTML = '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
+        }
+
+        function abrirMenu() {
+            atualizarAlturaHeader();
+            menu.classList.add('aberto');
+            backdrop.classList.add('visivel');
+            document.body.classList.add('menu-aberto');
+            botao.setAttribute('aria-expanded', 'true');
+            botao.setAttribute('aria-label', 'Fechar menu de navegação');
+            botao.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+        }
+
+        botao.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const aberto = menu.classList.contains('aberto');
+            if (aberto) fecharMenu();
+            else abrirMenu();
+        });
+
+        backdrop.addEventListener('click', fecharMenu);
+
+        // Fecha ao navegar (UX mobile: tocar no link não deixa o drawer aberto)
+        menu.querySelectorAll('a').forEach((link) => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 768) fecharMenu();
+            });
+        });
+
+        // ESC fecha o menu
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && menu.classList.contains('aberto')) fecharMenu();
+        });
+
+        // Ao voltar para desktop, garante menu fechado e limpa backdrop
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768 && menu.classList.contains('aberto')) fecharMenu();
+        });
+
+        // Clique fora do menu (no conteúdo) fecha - evita drawer preso
+        document.addEventListener('click', (e) => {
+            if (!menu.classList.contains('aberto')) return;
+            if (!menu.contains(e.target) && !botao.contains(e.target) && e.target !== backdrop) {
+                // só fecha se clicar fora, não dentro
+                if (window.innerWidth <= 768) {
+                    // verifica se o clique foi fora do menu
+                    const rect = menu.getBoundingClientRect();
+                    if (e.clientY < rect.top || e.clientY > rect.bottom) fecharMenu();
+                }
+            }
         });
     }
 
@@ -620,7 +735,7 @@
         }
     }
 
-    /* ---- Autocomplete de busca (deputados e senadores) ---- */
+    /* ---- Autocomplete de busca (deputados e senadores) — otimizado com debounce e busca server-side ---- */
     function iniciarAutocomplete() {
         const criarDatalist = (id) => {
             let dl = document.getElementById(id);
@@ -632,52 +747,124 @@
             return dl;
         };
 
+        // Cache simples por query (evita refazer a mesma busca em <2min)
+        const cacheAutocomplete = new Map();
+        const TTL_AUTOCOMPLETE = 2 * 60 * 1000;
+
         const inputDep = $('#campoBusca');
         if (inputDep) {
             const dl = criarDatalist('listaSugestoesDeputados');
             inputDep.setAttribute('list', dl.id);
-            const carregar = async () => {
-                if (deputadosAutocomplete.length) {
-                    dl.innerHTML = deputadosAutocomplete.map((o) =>
+            let ultimoController = null;
+
+            const buscarESugerir = debounce(async (valor) => {
+                const query = String(valor || '').trim();
+                if (query.length < 2) {
+                    // Sem query: mostra cache leve ou vazio (evita carregar 600 em background)
+                    dl.innerHTML = deputadosAutocomplete.slice(0, 20).map((o) =>
                         `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
                     return;
                 }
+                const chaveCache = `dep:${query.toLowerCase()}`;
+                const cached = cacheAutocomplete.get(chaveCache);
+                if (cached && Date.now() - cached.ts < TTL_AUTOCOMPLETE) {
+                    dl.innerHTML = cached.dados.map((o) =>
+                        `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                    return;
+                }
+                if (ultimoController) ultimoController.abort();
+                ultimoController = new AbortController();
                 try {
-                    const lista = await buscarTodosDeputados({});
-                    deputadosAutocomplete = lista.map((d) => ({
+                    const res = await SeuPoliticoAPI.buscarDeputados({ nome: query, pagina: 1 });
+                    const lista = (res.dados || []).slice(0, 20).map((d) => ({
                         nome: d.nome,
                         label: `${d.nome} (${d.partido || '—'}-${d.uf || '—'})`,
                     }));
-                } catch (e) { deputadosAutocomplete = []; }
-                dl.innerHTML = deputadosAutocomplete.map((o) =>
-                    `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                    cacheAutocomplete.set(chaveCache, { dados: lista, ts: Date.now() });
+                    dl.innerHTML = lista.map((o) =>
+                        `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                    // fallback silencioso
+                }
+            }, 300);
+
+            // Pré-carrega a lista (estática se disponível) em background para foco sem digitar.
+            let preCarregado = false;
+            const preCarregarLeve = async () => {
+                if (preCarregado) return;
+                preCarregado = true;
+                try {
+                    let lista = [];
+                    try {
+                        lista = await SeuPoliticoAPI.listaDeputadosEstatica();
+                    } catch (e) {
+                        const res = await SeuPoliticoAPI.buscarDeputados({ pagina: 1 });
+                        lista = res.dados || [];
+                    }
+                    deputadosAutocomplete = lista.slice(0, 20).map((d) => ({
+                        nome: d.nome,
+                        label: `${d.nome} (${d.partido || '—'}-${d.uf || '—'})`,
+                    }));
+                    if (!inputDep.value) {
+                        dl.innerHTML = deputadosAutocomplete.map((o) =>
+                            `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                    }
+                } catch (e) { /* ignora */ }
             };
-            inputDep.addEventListener('focus', carregar);
-            inputDep.addEventListener('input', () => { if (!deputadosAutocomplete.length) carregar(); });
+
+            inputDep.addEventListener('focus', preCarregarLeve);
+            inputDep.addEventListener('input', (e) => buscarESugerir(e.target.value));
         }
 
         const inputSen = $('#campoBuscaSenado');
         if (inputSen) {
             const dl = criarDatalist('listaSugestoesSenadores');
             inputSen.setAttribute('list', dl.id);
-            const carregar = async () => {
-                if (senadoresAutocomplete.length) {
-                    dl.innerHTML = senadoresAutocomplete.map((o) =>
+            const buscarSen = debounce(async (valor) => {
+                const query = String(valor || '').trim();
+                if (query.length < 2) {
+                    dl.innerHTML = senadoresAutocomplete.slice(0, 20).map((o) =>
+                        `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                    return;
+                }
+                const chave = `sen:${query.toLowerCase()}`;
+                const cached = cacheAutocomplete.get(chave);
+                if (cached && Date.now() - cached.ts < TTL_AUTOCOMPLETE) {
+                    dl.innerHTML = cached.dados.map((o) =>
                         `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
                     return;
                 }
                 try {
-                    const { dados } = await SeuPoliticoAPI.buscarSenadores({});
-                    senadoresAutocomplete = (dados || []).map((s) => ({
+                    const { dados } = await SeuPoliticoAPI.buscarSenadores({ nome: query });
+                    const lista = (dados || []).slice(0, 20).map((s) => ({
                         nome: s.nome,
                         label: `${s.nome} (${s.partido || '—'}-${s.uf || '—'})`,
                     }));
-                } catch (e) { senadoresAutocomplete = []; }
-                dl.innerHTML = senadoresAutocomplete.map((o) =>
-                    `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                    cacheAutocomplete.set(chave, { dados: lista, ts: Date.now() });
+                    dl.innerHTML = lista.map((o) =>
+                        `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                } catch (e) { /* ignora */ }
+            }, 300);
+
+            let senPre = false;
+            const preSen = async () => {
+                if (senPre) return;
+                senPre = true;
+                try {
+                    const { dados } = await SeuPoliticoAPI.buscarSenadores({});
+                    senadoresAutocomplete = (dados || []).slice(0, 20).map((s) => ({
+                        nome: s.nome,
+                        label: `${s.nome} (${s.partido || '—'}-${s.uf || '—'})`,
+                    }));
+                    if (!inputSen.value) {
+                        dl.innerHTML = senadoresAutocomplete.map((o) =>
+                            `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                    }
+                } catch (e) { /* ignora */ }
             };
-            inputSen.addEventListener('focus', carregar);
-            inputSen.addEventListener('input', () => { if (!senadoresAutocomplete.length) carregar(); });
+            inputSen.addEventListener('focus', preSen);
+            inputSen.addEventListener('input', (e) => buscarSen(e.target.value));
         }
     }
 
@@ -836,23 +1023,13 @@
         const resumo = $('#resumoBusca');
         if (!lista) return;
 
-        try {
-            const listaDeputados = await buscarTodosDeputados({ nome, partido, uf });
-
-            if (resumo) {
-                resumo.innerHTML = `<p class="page-subtitle">${listaDeputados.length} deputado${listaDeputados.length === 1 ? '' : 's'} encontrado${listaDeputados.length === 1 ? '' : 's'}. Os sinais apontados são neutros — investigue você mesmo.</p>`;
-            }
-
-            if (!listaDeputados.length) {
-                renderizarEstadosVazio(lista, 'estado-vazio', 'fa-user-slash', 'Nenhum deputado encontrado com esses critérios. Tente outro nome, partido ou estado.');
-                return;
-            }
-
-            lista.innerHTML = listaDeputados.map((d) => `
+        // Renderiza um chunk de deputados (append incremental + virtualização leve)
+        function renderChunk(deputados, { append = false } = {}) {
+            const html = deputados.map((d) => `
                 <article class="politico-card" style="margin-bottom:14px;">
                     <div class="politico-avatar">
                         ${d.urlFoto
-                            ? `<img src="${escaparHtml(d.urlFoto)}" alt="Foto de ${escaparHtml(d.nome)}" width="56" height="56" style="border-radius:50%;object-fit:cover;">`
+                            ? `<img src="${escaparHtml(d.urlFoto)}" alt="Foto de ${escaparHtml(d.nome)}" width="56" height="56" style="border-radius:50%;object-fit:cover;" loading="lazy">`
                             : '<i class="fa-solid fa-user" aria-hidden="true"></i>'}
                     </div>
                     <div class="politico-info">
@@ -864,7 +1041,7 @@
                         </p>
                     </div>
                     <div class="politico-meta">
-                        <a class="btn btn-sm" href="politico.html?id=${encodeURIComponent(d.id)}">
+                        <a class="btn btn-sm" href="politico.html?id=${encodeURIComponent(d.id)}&nome=${encodeURIComponent(d.nome)}&partido=${encodeURIComponent(d.partido || '')}&uf=${encodeURIComponent(d.uf || '')}">
                             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Analisar
                         </a>
                         <a class="btn btn-sm btn-outline" href="comparar.html?add=dep:${encodeURIComponent(d.id)}">
@@ -872,6 +1049,79 @@
                         </a>
                     </div>
                 </article>`).join('');
+            if (append) lista.insertAdjacentHTML('beforeend', html);
+            else lista.innerHTML = html;
+        }
+
+        try {
+            // 0) Sem filtro de nome: usa a lista estática (instantânea, gerada no build) quando disponível.
+            if (!nome && CacheSessao.obter({ nome, partido, uf }) === null) {
+                try {
+                    const estaticos = await SeuPoliticoAPI.listaDeputadosEstatica();
+                    if (estaticos.length) {
+                        let filtrados = estaticos;
+                        if (partido) filtrados = filtrados.filter((d) => (d.partido || '').toUpperCase() === String(partido).toUpperCase());
+                        if (uf) filtrados = filtrados.filter((d) => (d.uf || '').toUpperCase() === String(uf).toUpperCase());
+                        if (filtrados.length) {
+                            if (resumo) {
+                                resumo.innerHTML = `<p class="page-subtitle">${filtrados.length} deputado${filtrados.length === 1 ? '' : 's'} encontrado${filtrados.length === 1 ? '' : 's'}. Os sinais apontados são neutros — investigue você mesmo.</p>`;
+                            }
+                            renderChunk(filtrados);
+                            CacheSessao.gravar({ nome, partido, uf }, filtrados);
+                            return;
+                        }
+                    }
+                } catch (e) { /* se a lista estática falhar, cai para a API */ }
+            }
+
+            // 1) Carrega 1ª página primeiro (feedback em <400ms)
+            lista.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Buscando deputados...</p></div>';
+            const pagina1 = await SeuPoliticoAPI.buscarDeputados({ nome, partido, uf, pagina: 1 });
+            const primeiraPagina = pagina1.dados || [];
+            const ultima = (pagina1.links && pagina1.links.ultima) || 1;
+            const totalEstimado = ultima > 1 ? (ultima - 1) * 100 + primeiraPagina.length : primeiraPagina.length;
+
+            if (primeiraPagina.length === 0) {
+                if (resumo) resumo.innerHTML = '<p class="page-subtitle">Nenhum deputado encontrado.</p>';
+                renderizarEstadosVazio(lista, 'estado-vazio', 'fa-user-slash', 'Nenhum deputado encontrado com esses critérios. Tente outro nome, partido ou estado.');
+                return;
+            }
+
+            // Renderiza 1ª página imediatamente (percepção de velocidade)
+            renderChunk(primeiraPagina);
+            if (resumo) {
+                resumo.innerHTML = `<p class="page-subtitle">${primeiraPagina.length} de ${totalEstimado} deputado${totalEstimado === 1 ? '' : 's'} carregados... Os sinais apontados são neutros — investigue você mesmo.</p>`;
+            }
+
+            if (ultima === 1) {
+                if (resumo) resumo.innerHTML = `<p class="page-subtitle">${primeiraPagina.length} deputado${primeiraPagina.length === 1 ? '' : 's'} encontrado${primeiraPagina.length === 1 ? '' : 's'}. Os sinais apontados são neutros — investigue você mesmo.</p>`;
+                // Cacheia a página única para buscas futuras
+                CacheSessao.gravar({ nome, partido, uf }, primeiraPagina);
+                return;
+            }
+
+            // 2) Carrega páginas restantes em background (paralelo em lotes de 3, respeita 120 RPM)
+            const paginasRestantes = [];
+            for (let p = 2; p <= ultima; p++) paginasRestantes.push(p);
+            let todos = [...primeiraPagina];
+            const tamanhoLote = 3;
+            for (let i = 0; i < paginasRestantes.length; i += tamanhoLote) {
+                const lote = paginasRestantes.slice(i, i + tamanhoLote);
+                const resultados = await Promise.all(lote.map((p) => SeuPoliticoAPI.buscarDeputados({ nome, partido, uf, pagina: p })));
+                const novos = resultados.flatMap((r) => r.dados || []);
+                todos.push(...novos);
+                renderChunk(novos, { append: true });
+                if (resumo) {
+                    resumo.innerHTML = `<p class="page-subtitle">${todos.length} de ${totalEstimado} deputado${totalEstimado === 1 ? '' : 's'} carregados...</p>`;
+                }
+                // Evita bloquear a thread principal; deixa o browser pintar
+                await new Promise((r) => setTimeout(r, 0));
+            }
+
+            if (resumo) {
+                resumo.innerHTML = `<p class="page-subtitle">${todos.length} deputado${todos.length === 1 ? '' : 's'} encontrado${todos.length === 1 ? '' : 's'}. Os sinais apontados são neutros — investigue você mesmo.</p>`;
+            }
+            CacheSessao.gravar({ nome, partido, uf }, todos);
         } catch (erro) {
             renderizarEstadosVazio(lista, 'erro', 'fa-triangle-exclamation', erro.message);
             notificar(erro.message, 'fa-triangle-exclamation');
@@ -1028,7 +1278,15 @@
 
     function iniciarDashboard() {
         carregarDashboard();
-        carregarPoderes();
+        // Partidos e Poderes: lazy load (agregado pesado — emendas/contratos do Executivo).
+        const btnPoderes = $('#btnCarregarPoderes');
+        if (btnPoderes) {
+            btnPoderes.addEventListener('click', () => {
+                const cartao = btnPoderes.closest('.card');
+                if (cartao) cartao.remove();
+                carregarPoderes();
+            });
+        }
         const botao = $('#botaoAtualizarDashboard');
         if (botao) botao.addEventListener('click', () => { carregarDashboard(); carregarPoderes(); });
         const seletor = $('#seletorAnoDashboard');
@@ -1149,8 +1407,13 @@
         const anoSelecionado = anoParam || Number(seletorAno?.value) || new Date().getFullYear();
         if (seletorAno) seletorAno.value = String(anoSelecionado);
 
+        // Parâmetros extras vindos da lista (evitam chamada à Câmara de 5s no backend).
+        const nome = lerParametro('nome');
+        const partido = lerParametro('partido');
+        const uf = lerParametro('uf');
+
         try {
-            const dados = await SeuPoliticoAPI.analiseDeputado(id, anoSelecionado);
+            const dados = await SeuPoliticoAPI.analiseDeputado(id, anoSelecionado, { nome, partido, uf });
             const d = dados.deputado || {};
             const ano = dados.ano || '';
 
@@ -1245,14 +1508,64 @@
             renderizarTabelaDeputado();
             ligarFiltrosTabela('Deputado', renderizarTabelaDeputado);
 
-            // Votações em projetos de lei (mesmo ano de referência).
-            carregarVotacoes(id, anoSelecionado);
+            // Votações, Presença e Discursos: lazy load (sob demanda).
+            // Evita ~16 chamadas sequenciais à Câmara que estouravam o limite de 60s e travavam a página.
 
-            // Presença em Plenário (mesmo ano de referência).
-            carregarPresencaDeputado(id, anoSelecionado);
+            const votacoesContainer = $('#listaVotacoes');
+            if (votacoesContainer) {
+                votacoesContainer.innerHTML = `
+                    <div class="card" style="text-align:center;padding:24px;">
+                        <p style="color:var(--text-secondary);margin-bottom:12px;">
+                            O histórico de votações é buscado na API da Câmara (pode levar alguns segundos).
+                            Carregue sob demanda para não atrasar o perfil.
+                        </p>
+                        <button class="btn btn-sm" id="btnCarregarVotacoes" type="button">
+                            <i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Carregar votações
+                        </button>
+                    </div>`;
+                votacoesContainer.querySelector('#btnCarregarVotacoes')?.addEventListener('click', () => {
+                    votacoesContainer.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando votações...</p></div>';
+                    carregarVotacoes(id, anoSelecionado);
+                });
+            }
 
-            // Discursos em Plenário (mesmo ano de referência).
-            carregarDiscursosDeputado(id, anoSelecionado);
+            // Presença em Plenário (lazy load — scrape HTML da Câmara).
+            const presencaContainer = $('#conteudoPresencaDeputado');
+            if (presencaContainer) {
+                presencaContainer.innerHTML = `
+                    <div class="card" style="text-align:center;padding:24px;">
+                        <p style="color:var(--text-secondary);margin-bottom:12px;">
+                            A presença em plenário é obtida por leitura da página oficial da Câmara (scrape HTML).
+                            Carregue sob demanda para não atrasar o perfil.
+                        </p>
+                        <button class="btn btn-sm" id="btnCarregarPresenca" type="button">
+                            <i class="fa-solid fa-user-check" aria-hidden="true"></i> Carregar presença
+                        </button>
+                    </div>`;
+                presencaContainer.querySelector('#btnCarregarPresenca')?.addEventListener('click', () => {
+                    presencaContainer.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando presença...</p></div>';
+                    carregarPresencaDeputado(id, anoSelecionado);
+                });
+            }
+
+            // Discursos em Plenário (lazy load).
+            const discursosContainer = $('#listaDiscursosDeputado');
+            if (discursosContainer) {
+                discursosContainer.innerHTML = `
+                    <div class="card" style="text-align:center;padding:24px;">
+                        <p style="color:var(--text-secondary);margin-bottom:12px;">
+                            Discursos em plenário são buscados na API da Câmara.
+                            Carregue sob demanda.
+                        </p>
+                        <button class="btn btn-sm" id="btnCarregarDiscursos" type="button">
+                            <i class="fa-solid fa-microphone-lines" aria-hidden="true"></i> Carregar discursos
+                        </button>
+                    </div>`;
+                discursosContainer.querySelector('#btnCarregarDiscursos')?.addEventListener('click', () => {
+                    discursosContainer.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando discursos...</p></div>';
+                    carregarDiscursosDeputado(id, anoSelecionado);
+                });
+            }
         } catch (erro) {
             renderizarEstadosVazio(cabecalho, 'erro', 'fa-triangle-exclamation', erro.message);
             notificar(erro.message, 'fa-triangle-exclamation');
@@ -2320,8 +2633,24 @@
             });
         }
         carregarPresidente();
-        carregarGastosPresidente();
-        carregarContratosPresidente();
+
+        // Gastos e contratos: lazy load (agregados pesados do Portal da Transparência).
+        const btnGastos = $('#btnCarregarGastosPresidente');
+        if (btnGastos) {
+            btnGastos.addEventListener('click', () => {
+                const cartao = btnGastos.closest('.card');
+                if (cartao) cartao.remove();
+                carregarGastosPresidente();
+            });
+        }
+        const btnContratos = $('#btnCarregarContratosPresidente');
+        if (btnContratos) {
+            btnContratos.addEventListener('click', () => {
+                const cartao = btnContratos.closest('.card');
+                if (cartao) cartao.remove();
+                carregarContratosPresidente();
+            });
+        }
         const botao = $('#botaoAtualizarGastosPresidente');
         if (botao) botao.addEventListener('click', () => { carregarGastosPresidente(); carregarContratosPresidente(); });
     }

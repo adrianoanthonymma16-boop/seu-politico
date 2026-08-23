@@ -9,9 +9,12 @@
   },
   "scripts": {
     "start": "node backend/server.js",
+    "precompute": "node scripts/precompute.js",
+    "prebuild": "node scripts/precompute.js --soft",
     "test": "cd backend && node --test"
   },
   "dependencies": {
+    "@upstash/redis": "^1.38.2",
     "adm-zip": "^0.5.16",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

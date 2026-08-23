@@ -50,17 +50,17 @@ const contadores = {
 };
 
 /* ---- Requisição base com retry em 429 ---- */
-async function requisitar(url, headers, limitador, tentativas = 2, rotulo = 'camara') {
+async function requisitar(url, headers, limitador, tentativas = 2, rotulo = 'camara', timeoutMs = 30000) {
     for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
         try {
             contadores[rotulo].requisicoes += 1;
             const resposta = await limitador.agendar(() =>
-                fetch(url, { headers, signal: AbortSignal.timeout(30000) })
+                fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
             );
 
             if (resposta.status === 429 && tentativa < tentativas) {
                 contadores[rotulo].retries429 += 1;
-                const aguardar = Number(resposta.headers.get('retry-after')) || 5;
+                const aguardar = Math.min(Number(resposta.headers.get('retry-after')) || 5, 10);
                 console.warn(`[proxy] 429 recebido, aguardando ${aguardar}s antes de tentar novamente.`);
                 await AGUARDAR(aguardar * 1000);
                 continue;
@@ -75,6 +75,12 @@ async function requisitar(url, headers, limitador, tentativas = 2, rotulo = 'cam
 
             return await resposta.json();
         } catch (erro) {
+            const isNetworkError = !erro.status || erro.name === 'AbortError' || String(erro.message).includes('fetch failed');
+            if (tentativa < tentativas && (erro.status === 429 || isNetworkError || (erro.status && erro.status >= 500))) {
+                console.warn(`[proxy] erro ${erro.status || erro.name || 'network'}, tentando novamente (${tentativa}/${tentativas}): ${erro.message}`);
+                await AGUARDAR(1000 * tentativa);
+                continue;
+            }
             if (erro.status && erro.status !== 429 && tentativa < tentativas) {
                 console.warn(`[proxy] erro ${erro.status}, tentando novamente (${tentativa}/${tentativas}).`);
                 await AGUARDAR(1000);
@@ -140,7 +146,9 @@ function requisitarWikipedia(params = {}) {
     url.searchParams.set('format', 'json');
     url.searchParams.set('origin', '*');
     console.log(`[proxy] Wikipedia GET ${url.search}`);
-    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorWikipedia, 2, 'wikipedia');
+    // 3 tentativas (o 429 aguarda retry-after antes de repetir) + timeout 20s.
+    // Dados estáticos e cache 7d: após a 1ª captura, o 429 deixa de ocorrer.
+    return requisitar(url.toString(), { Accept: 'application/json' }, limitadorWikipedia, 3, 'wikipedia', 20000);
 }
 
 module.exports = { requisitarPortal, requisitarCamara, requisitarSenadoAdm, requisitarSenadoLegis, requisitarWikipedia, PORTAL_BASE, CAMARA_BASE, contadores };

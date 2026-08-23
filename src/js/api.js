@@ -9,7 +9,7 @@
 
 const SeuPoliticoAPI = (() => {
     const API_BASE = '/api';
-    const TEMPO_MAXIMO_MS = 60000; // 60s — evita "carregando" infinito
+    const TEMPO_MAXIMO_MS = 30000; // 30s — evita "carregando" infinito; endpoints pesados agora são lazy-load
 
     /**
      * Requisição base com tratamento de erros amigável.
@@ -54,6 +54,14 @@ const SeuPoliticoAPI = (() => {
 
     return {
         /* ---- CÂMARA DOS DEPUTADOS ---- */
+
+        /** Lista estática completa de deputados (gerada no build) — resposta instantânea via CDN. */
+        async listaDeputadosEstatica() {
+            const resp = await fetch('/data/deputados.json', { signal: AbortSignal.timeout(8000) });
+            if (!resp.ok) throw new Error(`Lista estática indisponível (${resp.status}).`);
+            const dados = await resp.json();
+            return dados.dados || [];
+        },
 
         /** Busca deputados por nome, partido e/ou UF. */
         buscarDeputados({ nome, partido, uf, pagina = 1 } = {}) {
@@ -204,8 +212,8 @@ const SeuPoliticoAPI = (() => {
         },
 
         /** Análise completa de um deputado. */
-        analiseDeputado(id, ano) {
-            return requisicao(`/analise/deputado/${id}`, { ano });
+        analiseDeputado(id, ano, { nome, partido, uf } = {}) {
+            return requisicao(`/analise/deputado/${id}`, { ano, nome, partido, uf });
         },
 
         /** Comparação neutra entre parlamentares. */
