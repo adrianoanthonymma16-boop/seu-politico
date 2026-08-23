@@ -73,7 +73,7 @@ O **Seu Político** reúne dados de fontes oficiais e apresenta:
 - **Contratos (Executivo)** — busca por ministério e tabela de contratos com link de validação no Portal.
 - **Presidente da República** — perfil informativo com resumo, foto e links oficiais, **mais análise de gastos completa**: todas as **viagens a serviço** e **contratos da Presidência**, com filtros, indicadores, sinais, **maiores fornecedores** e comprovante no Portal.
 - **Candidatos à Presidência** — candidatos registrados para 2026, ativo no período eleitoral (fonte pública, situação oficial no TSE).
-- **Votações** — busque uma proposição (ex.: `PL 1234/2025`) e veja o placar e como cada deputado votou, destacando os do seu estado.
+- **Votações** — lista de **votações recentes da Câmara e do Senado** (sem precisar pesquisar), com "Carregar mais"; busque uma proposição (ex.: `PL 1234/2025`) e veja o placar. Ao abrir uma votação, dá para **pesquisar por nome e filtrar por UF e partido** nos votos.
 - **Comparar** — gastos lado a lado com gráfico agrupado por categoria, **incluindo deputados × senadores no mesmo gráfico**.
 - **Aprenda a fiscalizar** — guia educativo com passos para conferir os dados por conta própria.
 - **Seguir políticos** — salve perfis no navegador e acompanhe-os na página inicial.

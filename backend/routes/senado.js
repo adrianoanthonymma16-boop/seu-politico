@@ -12,10 +12,24 @@ const express = require('express');
 const { listarSenadores, obterSenador, sincronizarCeaps, obterDespesasCeaps, obterFrequenciaVotacoes, obterVotacoesSenador, obterDetalheVotacaoSenado, obterDiscursosSenador, mockDespesasSenador } = require('../services/senado');
 const { calcularResumo, gerarSinais } = require('../services/motorAlerta');
 const cache = require('../services/cache');
+const mock = require('../services/mockData');
 
 const rota = express.Router();
 const MOCK = process.env.USE_MOCK === 'true';
 const ANO_PADRAO = () => new Date().getFullYear();
+
+/* Janela do trimestre atual (até hoje) — usada na lista de votações recentes. */
+function janelaAtual() {
+    const hoje = new Date();
+    const tri = Math.floor(hoje.getMonth() / 3);
+    const iniMes = tri * 3 + 1;
+    const fimMes = tri * 3 + 3;
+    const inicio = new Date(hoje.getFullYear(), iniMes - 1, 1);
+    const fimEfetivo = new Date(hoje.getFullYear(), fimMes, 0);
+    const fim = fimEfetivo > hoje ? hoje : fimEfetivo;
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { inicio: fmt(inicio), fim: fmt(fim) };
+}
 
 /* ---- Média de referência por UF (senadores) ---- */
 async function calcularMediaUf(uf, ano) {
@@ -80,6 +94,52 @@ rota.get('/ceaps/sincronizar', async (req, res) => {
     } catch (erro) {
         console.error('[senado/ceaps]', erro.message);
         res.status(erro.status || 500).json({ erro: erro.message });
+    }
+});
+
+/** GET /api/senado/votacoes/recentes?pagina= — lista de votações recentes (Senado) */
+rota.get('/votacoes/recentes', async (req, res) => {
+    try {
+        const pagina = Math.max(1, Number(req.query.pagina) || 1);
+        const limite = 50;
+
+        if (MOCK) {
+            return res.json(mock.obterVotacoesRecentesSenado(pagina));
+        }
+
+        const cache = require('../services/cache');
+        const { requisitarSenadoLegis } = require('../services/proxy');
+        const janela = janelaAtual();
+        const chave = `senado:votacoes:recentes:${janela.inicio}`;
+
+        let todos = await cache.obter(chave);
+        if (!todos) {
+            const resposta = await requisitarSenadoLegis('votacao', {
+                dataInicio: janela.inicio,
+                dataFim: janela.fim,
+            });
+            todos = (Array.isArray(resposta) ? resposta : (resposta.data || []))
+                .map((rec) => ({
+                    idVotacao: rec.codigoSessaoVotacao,
+                    sessao: rec.codigoSessao,
+                    data: rec.dataSessao || '',
+                    orgao: 'Plenário',
+                    titulo: rec.identificacao || 'Votação',
+                    descricao: rec.descricaoVotacao || rec.ementa || '',
+                    casa: 'senado',
+                }))
+                .sort((a, b) => String(b.data).localeCompare(String(a.data)));
+            await cache.gravar(chave, todos, 6 * 3600);
+        }
+
+        const inicio = (pagina - 1) * limite;
+        res.json({
+            dados: todos.slice(inicio, inicio + limite),
+            links: { pagina, ultima: Math.max(1, Math.ceil(todos.length / limite)) },
+        });
+    } catch (erro) {
+        console.error('[senado/votacoes/recentes]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
     }
 });
 

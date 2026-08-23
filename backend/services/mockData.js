@@ -278,6 +278,48 @@ module.exports = {
         };
     },
 
+    obterVotacoesRecentesCamara(pagina = 1) {
+        const itens = 50;
+        const rng = sementeDe('votRecCam');
+        const todas = [];
+        for (let i = 0; i < 120; i++) {
+            const prop = PROPOSICOES_MOCK[i % PROPOSICOES_MOCK.length];
+            todas.push({
+                idVotacao: 8000 + i,
+                data: `2025-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 27)).padStart(2, '0')}`,
+                orgao: i % 5 === 0 ? 'CCJC' : 'PLEN',
+                descricao: ['Aprovado o texto base', 'Rejeitado o Requerimento', 'Aprovada a Redação Final'][i % 3],
+                proposicaoObjeto: prop.sigla,
+                aprovacao: i % 2 === 0 ? 1 : 0,
+                casa: 'camara',
+            });
+        }
+        todas.sort((a, b) => b.data.localeCompare(a.data));
+        const inicio = (pagina - 1) * itens;
+        return { dados: todas.slice(inicio, inicio + itens), links: { pagina, ultima: Math.ceil(todas.length / itens) } };
+    },
+
+    obterVotacoesRecentesSenado(pagina = 1) {
+        const itens = 50;
+        const rng = sementeDe('votRecSen');
+        const todas = [];
+        for (let i = 0; i < 40; i++) {
+            const prop = PROPOSICOES_MOCK[i % PROPOSICOES_MOCK.length];
+            todas.push({
+                idVotacao: 9000 + i,
+                sessao: 500000 + i,
+                data: `2025-${String(3 + (i % 9)).padStart(2, '0')}-${String(1 + Math.floor(rng() * 27)).padStart(2, '0')}`,
+                orgao: 'Plenário',
+                titulo: prop.sigla,
+                descricao: ['Aprovado o texto base', 'Rejeitado o Requerimento'][i % 2],
+                casa: 'senado',
+            });
+        }
+        todas.sort((a, b) => b.data.localeCompare(a.data));
+        const inicio = (pagina - 1) * itens;
+        return { dados: todas.slice(inicio, inicio + itens), links: { pagina, ultima: Math.ceil(todas.length / itens) } };
+    },
+
     buscarProposicao(siglaTipo, numero, ano) {
         const tipoAlvo = String(siglaTipo).toUpperCase();
         const numAlvo = String(numero);

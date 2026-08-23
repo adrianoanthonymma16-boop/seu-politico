@@ -52,6 +52,8 @@
     let votacoesAtuais = [];
     let votacaoPagina = 1;
     let votacoesSenadorAtuais = [];
+    let votacoesRecentesCamara = [];
+    let votacoesRecentesSenado = [];
     function criarOuAtualizar(id, config) {
         // Proteção: se a biblioteca de gráficos não carregou, nunca derruba a página.
         if (typeof Chart === 'undefined') {
@@ -2376,44 +2378,189 @@
         });
     }
 
-    async function carregarVotosProposicao(idVotacao) {
-        const caixa = $('#detalheProposicao');
+    async function carregarVotosProposicao(idVotacao, casa = 'camara', sessao = '', alvoId = '#detalheProposicao') {
+        const caixa = $(alvoId);
         if (!caixa) return;
         caixa.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando votos...</p></div>';
         try {
-            const dados = await SeuPoliticoAPI.obterDetalheVotacao(idVotacao);
+            const dados = casa === 'senado'
+                ? await SeuPoliticoAPI.obterDetalheVotacaoSenado(sessao, idVotacao)
+                : await SeuPoliticoAPI.obterDetalheVotacao(idVotacao);
             const r = dados.resultado || {};
             const votos = dados.votos || [];
+            const acesso = (v) => (casa === 'senado' ? v.senador : v.deputado);
+            const rotuloPessoa = casa === 'senado' ? 'Senador' : 'Deputado';
             const ufUsuario = lerUfUsuario();
+
+            const ufs = [...new Set(votos.map((v) => acesso(v)?.uf).filter(Boolean))].sort();
+            const partidos = [...new Set(votos.map((v) => acesso(v)?.partido).filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
             caixa.innerHTML = `
                 <div class="card">
                     <div class="card-titulo">${escaparHtml(dados.titulo || 'Votação')}</div>
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+                    ${dados.ementa ? `<p style="color:var(--text-secondary);font-size:14px;margin-top:4px;">${escaparHtml(dados.ementa)}</p>` : ''}
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
                         <span class="badge badge-uf">Sim: ${escaparHtml(r.sim ?? '—')}</span>
                         <span class="badge badge-partido">Não: ${escaparHtml(r.nao ?? '—')}</span>
                         <span class="badge badge-cargo">Abstenções: ${escaparHtml(r.abstencoes ?? '—')}</span>
                         ${r.totalVotos ? `<span class="badge badge-uf">Total: ${escaparHtml(r.totalVotos)}</span>` : ''}
                     </div>
+
+                    <div class="card" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+                        <div style="flex:1;min-width:180px;">
+                            <label for="filtroVotoNome" class="visually-hidden">Buscar ${rotuloPessoa.toLowerCase()} por nome</label>
+                            <input type="text" id="filtroVotoNome" placeholder="Buscar por nome..." autocomplete="off"
+                                   style="width:100%;padding:10px 12px;border:2px solid var(--border-light);border-radius:var(--radius);font-family:var(--font-corpo);">
+                        </div>
+                        <div>
+                            <label for="filtroVotoUf" class="visually-hidden">Filtrar por UF</label>
+                            <select id="filtroVotoUf" aria-label="Filtrar por UF">
+                                <option value="">Todas as UFs</option>
+                                ${ufs.map((u) => `<option value="${escaparHtml(u)}">${escaparHtml(u)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filtroVotoPartido" class="visually-hidden">Filtrar por partido</label>
+                            <select id="filtroVotoPartido" aria-label="Filtrar por partido">
+                                <option value="">Todos os partidos</option>
+                                ${partidos.map((p) => `<option value="${escaparHtml(p)}">${escaparHtml(p)}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="tabela-wrapper" style="margin-top:12px;">
                         <table class="tabela">
-                            <thead><tr><th>Deputado</th><th>Partido</th><th>UF</th><th>Voto</th></tr></thead>
-                            <tbody>
-                                ${votos.length
-                                    ? votos.map((v) => `
-                                        <tr${v.deputado?.uf === ufUsuario ? ' style="background:var(--hover-bg);"' : ''}>
-                                            <td>${escaparHtml(v.deputado?.nome || '—')}</td>
-                                            <td>${escaparHtml(v.deputado?.partido || '—')}</td>
-                                            <td>${escaparHtml(v.deputado?.uf || '—')}</td>
-                                            <td>${escaparHtml(v.voto || '—')}</td>
-                                        </tr>`).join('')
-                                    : '<tr><td colspan="4" class="estado-vazio">Sem votos individuais disponíveis.</td></tr>'}
-                            </tbody>
+                            <thead><tr><th>${rotuloPessoa}</th><th>Partido</th><th>UF</th><th>Voto</th></tr></thead>
+                            <tbody id="corpoVotosFiltrados"></tbody>
                         </table>
                     </div>
-                    ${ufUsuario ? `<p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Linhas destacadas: deputados de <strong>${ufUsuario}</strong>.</p>` : ''}
+                    <p id="contagemVotosFiltrados" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></p>
+                    ${ufUsuario ? `<p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Linhas destacadas: ${rotuloPessoa.toLowerCase()}s de <strong>${ufUsuario}</strong>.</p>` : ''}
                 </div>`;
+
+            const renderVotos = () => {
+                const nome = ($('#filtroVotoNome')?.value || '').toLowerCase().trim();
+                const uf = $('#filtroVotoUf')?.value || '';
+                const partido = $('#filtroVotoPartido')?.value || '';
+                const filtrados = votos.filter((v) => {
+                    const d = acesso(v);
+                    if (!d) return false;
+                    if (nome && !String(d.nome || '').toLowerCase().includes(nome)) return false;
+                    if (uf && d.uf !== uf) return false;
+                    if (partido && d.partido !== partido) return false;
+                    return true;
+                });
+                const corpo = $('#corpoVotosFiltrados');
+                if (!corpo) return;
+                corpo.innerHTML = filtrados.length
+                    ? filtrados.map((v) => {
+                        const d = acesso(v);
+                        return `
+                        <tr${d?.uf === ufUsuario ? ' style="background:var(--hover-bg);"' : ''}>
+                            <td>${escaparHtml(d?.nome || '—')}</td>
+                            <td>${escaparHtml(d?.partido || '—')}</td>
+                            <td>${escaparHtml(d?.uf || '—')}</td>
+                            <td>${escaparHtml(v.voto || '—')}</td>
+                        </tr>`;
+                    }).join('')
+                    : '<tr><td colspan="4" class="estado-vazio">Nenhum voto com esses filtros.</td></tr>';
+                const cont = $('#contagemVotosFiltrados');
+                if (cont) cont.textContent = `Mostrando ${filtrados.length} de ${votos.length} ${rotuloPessoa.toLowerCase()}s.`;
+            };
+
+            const nomeInput = $('#filtroVotoNome');
+            if (nomeInput) nomeInput.addEventListener('input', renderVotos);
+            const selUf = $('#filtroVotoUf');
+            if (selUf) selUf.addEventListener('change', renderVotos);
+            const selPartido = $('#filtroVotoPartido');
+            if (selPartido) selPartido.addEventListener('change', renderVotos);
+            renderVotos();
         } catch (erro) {
             caixa.innerHTML = `<div class="erro"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><p>${escaparHtml(erro.message)}</p></div>`;
+        }
+    }
+
+    /* ---- Listas de votações recentes (Câmara e Senado) ---- */
+    function renderizarListaVotacoes(container, rows, casa, detalheId) {
+        if (!container) return;
+        container.innerHTML = `
+            <div class="tabela-wrapper">
+                <table class="tabela">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Proposição</th>
+                            <th>Votação</th>
+                            <th>Resultado</th>
+                            <th>Placar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.length
+                            ? rows.map((v) => `
+                                <tr>
+                                    <td>${escaparHtml(v.data || '—')}</td>
+                                    <td style="white-space:normal;max-width:160px;">
+                                        <strong>${escaparHtml(casa === 'senado' ? (v.titulo || '—') : (v.proposicaoObjeto || v.descricao || '—'))}</strong>
+                                    </td>
+                                    <td style="white-space:normal;max-width:360px;">${escaparHtml(v.descricao || '—')}</td>
+                                    <td>${v.aprovacao === 1 ? '<span class="badge badge-uf">Aprovado</span>' : v.aprovacao === 0 ? '<span class="badge badge-partido">Rejeitado</span>' : '—'}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline btn-ver-votos" type="button"
+                                                data-casa="${casa}" data-id="${escaparHtml(v.idVotacao)}" data-sessao="${escaparHtml(v.sessao || '')}" data-alvo="${detalheId}">
+                                            <i class="fa-solid fa-eye" aria-hidden="true"></i> Ver votos
+                                        </button>
+                                    </td>
+                                </tr>`).join('')
+                            : '<tr><td colspan="5" class="estado-vazio">Nenhuma votação no período.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+            <div id="${detalheId.replace('#', '')}" style="margin-top:14px;"></div>`;
+
+        container.querySelectorAll('.btn-ver-votos').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                carregarVotosProposicao(btn.dataset.id, btn.dataset.casa, btn.dataset.sessao, btn.dataset.alvo);
+            });
+        });
+    }
+
+    async function carregarVotacoesRecentesCamara(pagina) {
+        const container = $('#listaVotacoesRecentes');
+        const botao = $('#botaoCarregarMaisCamara');
+        if (!container) return;
+        try {
+            const dados = await SeuPoliticoAPI.obterVotacoesRecentesCamara({ pagina });
+            const rows = dados.dados || [];
+            votacoesRecentesCamara = pagina === 1 ? rows : votacoesRecentesCamara.concat(rows);
+            renderizarListaVotacoes(container, votacoesRecentesCamara, 'camara', '#detalheVotacaoCamara');
+            if (botao) {
+                const ultima = (dados.links && dados.links.ultima) || pagina;
+                botao.style.display = pagina < ultima ? '' : 'none';
+                botao.dataset.pagina = String(pagina + 1);
+            }
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation', erro.message);
+        }
+    }
+
+    async function carregarVotacoesRecentesSenado(pagina) {
+        const container = $('#listaVotacoesRecentesSenado');
+        const botao = $('#botaoCarregarMaisSenado');
+        if (!container) return;
+        try {
+            const dados = await SeuPoliticoAPI.obterVotacoesRecentesSenado({ pagina });
+            const rows = dados.dados || [];
+            votacoesRecentesSenado = pagina === 1 ? rows : votacoesRecentesSenado.concat(rows);
+            renderizarListaVotacoes(container, votacoesRecentesSenado, 'senado', '#detalheVotacaoSenado');
+            if (botao) {
+                const ultima = (dados.links && dados.links.ultima) || pagina;
+                botao.style.display = pagina < ultima ? '' : 'none';
+                botao.dataset.pagina = String(pagina + 1);
+            }
+        } catch (erro) {
+            renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation', erro.message);
         }
     }
 
@@ -2441,6 +2588,15 @@
                 try { localStorage.setItem('seuPolitico-uf', selUf.value); } catch (e) { /* ignore */ }
             });
         }
+
+        const botaoCam = $('#botaoCarregarMaisCamara');
+        if (botaoCam) botaoCam.addEventListener('click', () => carregarVotacoesRecentesCamara(Number(botaoCam.dataset.pagina) || 2));
+        const botaoSen = $('#botaoCarregarMaisSenado');
+        if (botaoSen) botaoSen.addEventListener('click', () => carregarVotacoesRecentesSenado(Number(botaoSen.dataset.pagina) || 2));
+
+        // Lista de votações recentes (aparece sem pesquisar).
+        carregarVotacoesRecentesCamara(1);
+        carregarVotacoesRecentesSenado(1);
 
         const q = lerParametro('q');
         if (q) {

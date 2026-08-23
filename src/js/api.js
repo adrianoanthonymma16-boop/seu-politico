@@ -90,6 +90,16 @@ const SeuPoliticoAPI = (() => {
             return requisicao(`/camara/proposicao/${idProposicao}/votacoes`);
         },
 
+        /** Votações recentes da Câmara (página da lista). */
+        obterVotacoesRecentesCamara({ pagina = 1 } = {}) {
+            return requisicao('/camara/votacoes/recentes', { pagina });
+        },
+
+        /** Votações recentes do Senado (página da lista). */
+        obterVotacoesRecentesSenado({ pagina = 1 } = {}) {
+            return requisicao('/senado/votacoes/recentes', { pagina });
+        },
+
         /** Presenças e faltas de um deputado em plenário no ano. */
         obterFrequenciaDeputado(id, ano) {
             return requisicao(`/camara/deputado/${id}/frequencia`, { ano });

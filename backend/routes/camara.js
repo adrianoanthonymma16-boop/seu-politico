@@ -35,6 +35,19 @@ function fatiasDoAno(ano) {
     return fatias.reverse(); // do trimestre mais recente ao mais antigo
 }
 
+/* Janela do trimestre atual (dataInicio/dataFim até hoje) — usada na lista recente. */
+function janelaAtual() {
+    const hoje = new Date();
+    const tri = Math.floor(hoje.getMonth() / 3); // 0..3
+    const iniMes = tri * 3 + 1;
+    const fimMes = tri * 3 + 3;
+    const inicio = new Date(hoje.getFullYear(), iniMes - 1, 1);
+    const fimEfetivo = new Date(hoje.getFullYear(), fimMes, 0);
+    const fim = fimEfetivo > hoje ? hoje : fimEfetivo;
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { inicio: fmt(inicio), fim: fmt(fim) };
+}
+
 /**
  * A API da Câmara não expõe "deputados/{id}/votacoes" (retorna 405). Para saber
  * como um deputado votou, listamos as votações recentes do ano (GET /votacoes,
@@ -121,6 +134,59 @@ rota.get('/cotas/sincronizar', async (req, res) => {
     } catch (erro) {
         console.error('[camara/cotas]', erro.message);
         res.status(erro.status || 500).json({ erro: erro.message });
+    }
+});
+
+/** GET /api/camara/votacoes/recentes?pagina= — lista de votações recentes (Câmara) */
+rota.get('/votacoes/recentes', async (req, res) => {
+    try {
+        const pagina = Math.max(1, Number(req.query.pagina) || 1);
+
+        const MOCK = process.env.USE_MOCK === 'true';
+        if (MOCK) {
+            return res.json(mock.obterVotacoesRecentesCamara(pagina));
+        }
+
+        const proxy = require('../services/proxy');
+        const cache = require('../services/cache');
+        const janela = janelaAtual();
+        const chave = `camara:votacoes:recentes:${janela.inicio}:${pagina}`;
+        const cached = await cache.obter(chave);
+        if (cached) return res.json(cached);
+
+        const r = await proxy.requisitarCamara('votacoes', {
+            dataInicio: janela.inicio,
+            dataFim: janela.fim,
+            ordem: 'DESC',
+            ordenarPor: 'dataHoraRegistro',
+            pagina,
+            itens: 50,
+        });
+
+        const dados = (r.dados || []).map((v) => ({
+            idVotacao: v.id,
+            data: v.data || '',
+            orgao: v.siglaOrgao || '',
+            descricao: v.descricao || '',
+            proposicaoObjeto: v.proposicaoObjeto || '',
+            aprovacao: v.aprovacao,
+            casa: 'camara',
+        }));
+
+        let ultima = pagina;
+        if (Array.isArray(r.links)) {
+            const last = r.links.find((l) => l.rel === 'last');
+            if (last && last.href) {
+                try { ultima = Number(new URL(last.href).searchParams.get('pagina')) || pagina; } catch (e) { /* keep */ }
+            }
+        }
+
+        const resultado = { dados, links: { pagina, ultima } };
+        await cache.gravar(chave, resultado, 6 * 3600);
+        res.json(resultado);
+    } catch (erro) {
+        console.error('[camara/votacoes/recentes]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
     }
 });
 

@@ -59,10 +59,10 @@
                 com destaque para os do seu estado. Dados públicos da Câmara dos Deputados.
             </p>
 
-            <!-- Busca -->
+            <!-- Busca de proposição (Câmara) -->
             <section class="card comparar-seletor" aria-label="Busca de proposição">
                 <div style="flex:2;min-width:240px;">
-                    <label for="campoProposicao">Proposição</label>
+                    <label for="campoProposicao">Proposição (Câmara)</label>
                     <form id="formProposicao" style="display:flex;gap:8px;">
                         <input type="text" id="campoProposicao" placeholder="Ex.: PL 1234/2025" autocomplete="off"
                                style="flex:1;padding:10px 12px;border:2px solid var(--border-light);border-radius:var(--radius);font-family:var(--font-corpo);">
@@ -73,18 +73,44 @@
                 </div>
                 <div>
                     <label for="seletorUfUsuario">Sua UF</label>
-                    <select id="seletorUfUsuario" aria-label="Selecionar sua UF para destacar deputados">
+                    <select id="seletorUfUsuario" aria-label="Selecionar sua UF para destacar parlamentares">
                         <option value="">Todas</option>
                     </select>
                 </div>
             </section>
 
-            <!-- Resultado -->
+            <!-- Resultado da busca -->
             <section id="resultadoProposicao" aria-live="polite">
                 <div class="estado-vazio">
                     <i class="fa-solid fa-file-contract" aria-hidden="true"></i>
                     <p>Busque uma proposição para ver o histórico de votações.</p>
                 </div>
+            </section>
+
+            <!-- Votações recentes — Câmara -->
+            <section aria-labelledby="tituloRecentesCamara" style="margin-top:28px;">
+                <h3 class="section-title" id="tituloRecentesCamara">
+                    <i class="fa-solid fa-landmark" aria-hidden="true"></i> Votações recentes — Câmara (Deputados)
+                </h3>
+                <div id="listaVotacoesRecentes" aria-live="polite">
+                    <div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando votações da Câmara...</p></div>
+                </div>
+                <button class="btn btn-sm btn-outline" id="botaoCarregarMaisCamara" type="button" style="margin-top:12px;display:none;">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i> Carregar mais
+                </button>
+            </section>
+
+            <!-- Votações recentes — Senado -->
+            <section aria-labelledby="tituloRecentesSenado" style="margin-top:28px;">
+                <h3 class="section-title" id="tituloRecentesSenado">
+                    <i class="fa-solid fa-building-columns" aria-hidden="true"></i> Votações recentes — Senado (Senadores)
+                </h3>
+                <div id="listaVotacoesRecentesSenado" aria-live="polite">
+                    <div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando votações do Senado...</p></div>
+                </div>
+                <button class="btn btn-sm btn-outline" id="botaoCarregarMaisSenado" type="button" style="margin-top:12px;display:none;">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i> Carregar mais
+                </button>
             </section>
         </main>
     </div>
