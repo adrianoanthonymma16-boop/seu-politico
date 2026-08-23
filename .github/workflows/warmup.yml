@@ -1,0 +1,43 @@
+# ==========================================================================
+# warmup.yml — Pré-computação diária (mantém o cache do Neon aquecido)
+# --------------------------------------------------------------------------
+# Como a Vercel Hobby limita a execução (~60s), os endpoints pesados
+# (cotas, CEAPS, poderes, empresas) são aquecidos 1x ao dia por este
+# workflow gratuito do GitHub Actions, populando o cache no PostgreSQL
+# (Neon) — assim os usuários sempre respondem rápido.
+#
+# Configure no repositório um SECRET chamado APP_URL com a URL do deploy
+# (ex.: https://seu-politico.vercel.app, sem barra no final).
+# ==========================================================================
+
+name: Warm-up Seu Político
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # 04:00 UTC (≈01:00 Brasília)
+  workflow_dispatch:
+
+jobs:
+  warmup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aquecer endpoints pesados (cache no Neon)
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "Secret APP_URL não configurado — pule (defina no repositório)."
+            exit 0
+          fi
+          ANO=$(date +%Y)
+          for p in \
+            "/api/camara/cotas/sincronizar?ano=$ANO" \
+            "/api/senado/ceaps/sincronizar?ano=$ANO" \
+            "/api/analise/poderes?ano=$ANO" \
+            "/api/analise/empresas?ano=$ANO"; do
+            if curl -fsS --max-time 150 "${APP_URL}${p}" >/dev/null 2>&1; then
+              echo "ok  ${p}"
+            else
+              echo "falhou (pode ser timeout do Hobby)  ${p}"
+            fi
+          done

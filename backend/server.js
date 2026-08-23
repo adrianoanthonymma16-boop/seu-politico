@@ -96,4 +96,10 @@ async function iniciar() {
     });
 }
 
-iniciar();
+// Sobe o servidor quando executado diretamente (npm start / Render).
+// Na Vercel, o app é importado por api/index.js (sem escutar porta).
+if (require.main === module) {
+    iniciar();
+}
+
+module.exports = { app, garantirSchema };

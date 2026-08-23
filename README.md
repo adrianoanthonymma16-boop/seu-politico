@@ -150,6 +150,12 @@ seu-politico/
 │   │   └── motorAlerta.test.js  # Testes unitários do motor (node --test)
 ├── scripts/
 │   └── schema.sql          # Tabelas do PostgreSQL
+├── api/
+│   └── index.js            # Função serverless (Vercel)
+├── .github/workflows/
+│   └── warmup.yml          # Pré-computação diária (GitHub Actions)
+├── vercel.json             # Configuração da Vercel (rewrites + maxDuration)
+├── package.json            # Dependências na raiz (Vercel)
 ├── docker-compose.yml      # PostgreSQL
 ├── .env.example
 ├── .gitignore
@@ -231,6 +237,32 @@ por isso não é usado.
 6. O Render free "dorme" após 15 min de inatividade. Para mantê-lo acordado,
    crie um monitor gratuito no **UptimeRobot** (intervalo 5 min) apontando
    para `https://SEU-SERVICO.onrender.com/api/health`.
+
+### Vercel (opcional — plano gratuito)
+
+O repositório inclui a configuração para a **Vercel** (`vercel.json`, `api/index.js`
+e `package.json` na raiz — o backend vira uma função serverless e os arquivos
+estáticos são servidos pela Vercel).
+
+**Passo a passo:**
+
+1. **Banco**: crie um projeto no **Neon** (https://neon.tech, free) e copie a
+   connection string.
+2. Na Vercel: **Add New → Project** → importe o repositório.
+3. **Root Directory = raiz** (não selecione `backend`).
+4. Em **Environment Variables**:
+   - `DATABASE_URL` → connection string do Neon;
+   - `CHAVE_API_PORTAL` → sua chave do Portal da Transparência;
+   - `USE_MOCK` → `false`.
+5. **Deploy** e confira `/`, `/api/health` e um perfil.
+6. **Warm-up diário**: configure um **secret `APP_URL`** no repositório
+   (a URL do deploy, ex.: `https://seu-politico.vercel.app`) — o workflow
+   `.github/workflows/warmup.yml` aquece os caches pesados 1×/dia.
+
+> ⚠️ **Limite do Hobby (~60s):** os endpoints pesados (cotas, `poderes`,
+> `empresas`) podem estourar o tempo de execução no plano gratuito. O
+> **warm-up diário** (GitHub Actions) popula o cache no Neon — sem ele, o
+> primeiro acesso após o cache expirar pode falhar por timeout.
 
 ### Railway / Fly.io / qualquer host de container
 
