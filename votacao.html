@@ -92,6 +92,14 @@
                 <h3 class="section-title" id="tituloRecentesCamara">
                     <i class="fa-solid fa-landmark" aria-hidden="true"></i> Votações recentes — Câmara (Deputados)
                 </h3>
+                <div class="card" style="margin:12px 0 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <label for="filtroOrgaoCamara" style="font-weight:600;">Filtrar por:</label>
+                    <select id="filtroOrgaoCamara" aria-label="Filtrar votações por local">
+                        <option value="todas">Plenário + Comissões</option>
+                        <option value="plen">Plenário</option>
+                        <option value="comissao">Comissões</option>
+                    </select>
+                </div>
                 <div id="listaVotacoesRecentes" aria-live="polite">
                     <div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando votações da Câmara...</p></div>
                 </div>

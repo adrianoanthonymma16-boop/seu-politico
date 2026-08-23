@@ -54,6 +54,7 @@
     let votacoesSenadorAtuais = [];
     let votacoesRecentesCamara = [];
     let votacoesRecentesSenado = [];
+    let filtroOrgaoCamara = 'todas';
     let deputadosAutocomplete = [];
     let senadoresAutocomplete = [];
     let carregandoHome = false;
@@ -2615,7 +2616,7 @@
             const dados = await SeuPoliticoAPI.obterVotacoesRecentesCamara({ pagina });
             const rows = dados.dados || [];
             votacoesRecentesCamara = pagina === 1 ? rows : votacoesRecentesCamara.concat(rows);
-            renderizarListaVotacoes(container, votacoesRecentesCamara, 'camara', '#detalheVotacaoCamara');
+            renderizarVotacoesCamara();
             if (botao) {
                 const ultima = (dados.links && dados.links.ultima) || pagina;
                 botao.style.display = pagina < ultima ? '' : 'none';
@@ -2624,6 +2625,29 @@
         } catch (erro) {
             renderizarEstadosVazio(container, 'erro', 'fa-triangle-exclamation', erro.message);
         }
+    }
+
+    // Filtra as votações da Câmara por local (plenário / comissões / todas).
+    function votacoesCamaraFiltradas() {
+        const orgao = $('#filtroOrgaoCamara')?.value || 'todas';
+        filtroOrgaoCamara = orgao;
+        if (orgao === 'plen') return votacoesRecentesCamara.filter((v) => v.orgao === 'PLEN');
+        if (orgao === 'comissao') return votacoesRecentesCamara.filter((v) => v.orgao !== 'PLEN');
+        return votacoesRecentesCamara;
+    }
+
+    function renderizarVotacoesCamara() {
+        const container = $('#listaVotacoesRecentes');
+        if (!container) return;
+        const filtradas = votacoesCamaraFiltradas();
+        const rotuloFiltro = filtroOrgaoCamara === 'plen' ? 'Plenário'
+            : filtroOrgaoCamara === 'comissao' ? 'Comissões' : 'Plenário + Comissões';
+        renderizarListaVotacoes(container, filtradas, 'camara', '#detalheVotacaoCamara');
+        const nota = document.createElement('p');
+        nota.id = 'notaFiltroCamara';
+        nota.style.cssText = 'font-size:12px;color:var(--text-muted);margin-top:8px;';
+        nota.textContent = `Mostrando ${filtradas.length} de ${votacoesRecentesCamara.length} votações carregadas (${rotuloFiltro}).`;
+        container.appendChild(nota);
     }
 
     async function carregarVotacoesRecentesSenado(pagina) {
@@ -2674,6 +2698,9 @@
         if (botaoCam) botaoCam.addEventListener('click', () => carregarVotacoesRecentesCamara(Number(botaoCam.dataset.pagina) || 2));
         const botaoSen = $('#botaoCarregarMaisSenado');
         if (botaoSen) botaoSen.addEventListener('click', () => carregarVotacoesRecentesSenado(Number(botaoSen.dataset.pagina) || 2));
+
+        const filtroOrgao = $('#filtroOrgaoCamara');
+        if (filtroOrgao) filtroOrgao.addEventListener('change', renderizarVotacoesCamara);
 
         // Lista de votações recentes (aparece sem pesquisar).
         carregarVotacoesRecentesCamara(1);
