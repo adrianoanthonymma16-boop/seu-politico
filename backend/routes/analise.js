@@ -161,7 +161,7 @@ rota.get('/geral', async (req, res) => {
             aviso: 'Visão geral calculada a partir de uma amostra de dados públicos.',
         };
 
-        await cache.gravar(chave, resultado, 12 * 3600);
+        await cache.gravar(chave, resultado, 24 * 3600); // 1x/dia — protege o limite da Câmara
         res.json(resultado);
     } catch (erro) {
         console.error('[analise/geral]', erro.message);

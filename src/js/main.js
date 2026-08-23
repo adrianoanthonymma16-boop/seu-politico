@@ -54,6 +54,10 @@
     let votacoesSenadorAtuais = [];
     let votacoesRecentesCamara = [];
     let votacoesRecentesSenado = [];
+    let deputadosAutocomplete = [];
+    let senadoresAutocomplete = [];
+    let carregandoHome = false;
+    let carregandoDashboard = false;
     function criarOuAtualizar(id, config) {
         // Proteção: se a biblioteca de gráficos não carregou, nunca derruba a página.
         if (typeof Chart === 'undefined') {
@@ -578,6 +582,67 @@
         }
     }
 
+    /* ---- Autocomplete de busca (deputados e senadores) ---- */
+    function iniciarAutocomplete() {
+        const criarDatalist = (id) => {
+            let dl = document.getElementById(id);
+            if (!dl) {
+                dl = document.createElement('datalist');
+                dl.id = id;
+                document.body.appendChild(dl);
+            }
+            return dl;
+        };
+
+        const inputDep = $('#campoBusca');
+        if (inputDep) {
+            const dl = criarDatalist('listaSugestoesDeputados');
+            inputDep.setAttribute('list', dl.id);
+            const carregar = async () => {
+                if (deputadosAutocomplete.length) {
+                    dl.innerHTML = deputadosAutocomplete.map((o) =>
+                        `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                    return;
+                }
+                try {
+                    const lista = await buscarTodosDeputados({});
+                    deputadosAutocomplete = lista.map((d) => ({
+                        nome: d.nome,
+                        label: `${d.nome} (${d.partido || '—'}-${d.uf || '—'})`,
+                    }));
+                } catch (e) { deputadosAutocomplete = []; }
+                dl.innerHTML = deputadosAutocomplete.map((o) =>
+                    `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+            };
+            inputDep.addEventListener('focus', carregar);
+            inputDep.addEventListener('input', () => { if (!deputadosAutocomplete.length) carregar(); });
+        }
+
+        const inputSen = $('#campoBuscaSenado');
+        if (inputSen) {
+            const dl = criarDatalist('listaSugestoesSenadores');
+            inputSen.setAttribute('list', dl.id);
+            const carregar = async () => {
+                if (senadoresAutocomplete.length) {
+                    dl.innerHTML = senadoresAutocomplete.map((o) =>
+                        `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+                    return;
+                }
+                try {
+                    const { dados } = await SeuPoliticoAPI.buscarSenadores({});
+                    senadoresAutocomplete = (dados || []).map((s) => ({
+                        nome: s.nome,
+                        label: `${s.nome} (${s.partido || '—'}-${s.uf || '—'})`,
+                    }));
+                } catch (e) { senadoresAutocomplete = []; }
+                dl.innerHTML = senadoresAutocomplete.map((o) =>
+                    `<option value="${escaparHtml(o.nome)}" label="${escaparHtml(o.label)}"></option>`).join('');
+            };
+            inputSen.addEventListener('focus', carregar);
+            inputSen.addEventListener('input', () => { if (!senadoresAutocomplete.length) carregar(); });
+        }
+    }
+
     async function popularFiltros() {
         const selPartido = $('#filtroPartido');
         const selUf = $('#filtroUf');
@@ -636,6 +701,8 @@
        PÁGINA INICIAL
        ====================================================================== */
     async function carregarHome() {
+        if (carregandoHome) return;
+        carregandoHome = true;
         const anoAtual = new Date().getFullYear();
         try {
             const dados = await SeuPoliticoAPI.analiseGeral(anoAtual);
@@ -699,6 +766,12 @@
             const ids = ['#totalDeputados', '#totalPartidos', '#totalAlertas'];
             ids.forEach((s) => { const el = $(s); if (el) el.textContent = '—'; });
             renderizarEstadosVazio($('#destaques'), 'erro', 'fa-triangle-exclamation', 'Não foi possível carregar os dados.');
+        } finally {
+            carregandoHome = false;
+            const selo = $('#seloAtualizadoHome');
+            if (selo) {
+                selo.textContent = `Atualizado às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+            }
         }
 
         // Políticos que o cidadão acompanha (localStorage) — carrega em paralelo.
@@ -771,6 +844,8 @@
        DASHBOARD
        ====================================================================== */
     async function carregarDashboard() {
+        if (carregandoDashboard) return;
+        carregandoDashboard = true;
         const seletor = $('#seletorAnoDashboard');
         const ano = seletor ? Number(seletor.value) : new Date().getFullYear();
 
@@ -901,6 +976,12 @@
         } catch (erro) {
             notificar(erro.message, 'fa-triangle-exclamation');
             set('#corpoTopFornecedores', `<tr><td colspan="3" class="erro">${escaparHtml(erro.message)}</td></tr>`);
+        } finally {
+            carregandoDashboard = false;
+            const selo = $('#seloAtualizadoDashboard');
+            if (selo) {
+                selo.textContent = `Atualizado às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+            }
         }
     }
 
@@ -2147,27 +2228,24 @@
         const set = (chave, valor) => {
             if (valor) url.searchParams.set(chave, valor); else url.searchParams.delete(chave);
         };
-        set('dep1', $('#seletorDep1')?.value || '');
-        set('dep2', $('#seletorDep2')?.value || '');
-        set('cargo1', $('#cargoDep1')?.value || '');
-        set('cargo2', $('#cargoDep2')?.value || '');
+        for (let i = 1; i <= 4; i++) {
+            set(`dep${i}`, $(`#seletorDep${i}`)?.value || '');
+            set(`cargo${i}`, $(`#cargoDep${i}`)?.value || '');
+        }
         set('ano', $('#seletorAnoComparar')?.value || '');
         history.replaceState(null, '', url);
     }
 
     async function popularSeletoresComparar() {
-        const sel1 = $('#seletorDep1');
-        const sel2 = $('#seletorDep2');
-        const cargo1 = $('#cargoDep1');
-        const cargo2 = $('#cargoDep2');
+        const seletores = [1, 2, 3, 4].map((i) => $(`#seletorDep${i}`));
+        const cargos = [1, 2, 3, 4].map((i) => $(`#cargoDep${i}`));
         const anoSel = $('#seletorAnoComparar');
-        if (!sel1 || !sel2) return;
+        if (!seletores[0]) return;
 
         const anoParam = Number(lerParametro('ano'));
         if (anoSel && anoParam) anoSel.value = String(anoParam);
 
         const preencherSelect = (sel, dados) => {
-            const valorAtual = sel.value;
             sel.innerHTML = '<option value="">Selecione...</option>';
             dados.forEach((d) => {
                 const opt = document.createElement('option');
@@ -2175,7 +2253,6 @@
                 opt.textContent = `${d.nome} (${d.partido || '—'}-${d.uf || '—'})`;
                 sel.appendChild(opt);
             });
-            return valorAtual;
         };
 
         try {
@@ -2193,21 +2270,19 @@
             };
 
             const aplicarUrl = () => {
-                const dep1 = lerParametro('dep1');
-                const dep2 = lerParametro('dep2');
-                const cargo1Param = lerParametro('cargo1');
-                const cargo2Param = lerParametro('cargo2');
-                if (cargo1 && cargo1Param) cargo1.value = cargo1Param;
-                if (cargo2 && cargo2Param) cargo2.value = cargo2Param;
-                preencherPorCargo(cargo1?.value || 'dep', sel1);
-                preencherPorCargo(cargo2?.value || 'dep', sel2);
-                if (dep1) sel1.value = dep1;
-                if (dep2) sel2.value = dep2;
+                for (let i = 0; i < 4; i++) {
+                    const cargoParam = lerParametro(`cargo${i + 1}`);
+                    if (cargos[i] && cargoParam) cargos[i].value = cargoParam;
+                    preencherPorCargo(cargos[i]?.value || 'dep', seletores[i]);
+                    const dep = lerParametro(`dep${i + 1}`);
+                    if (dep) seletores[i].value = dep;
+                }
             };
 
-            if (cargo1) cargo1.addEventListener('change', () => { preencherPorCargo(cargo1.value, sel1); sincronizarCompararUrl(); });
-            if (cargo2) cargo2.addEventListener('change', () => { preencherPorCargo(cargo2.value, sel2); sincronizarCompararUrl(); });
-            [sel1, sel2].forEach((sel) => sel.addEventListener('change', sincronizarCompararUrl));
+            cargos.forEach((cargo, i) => {
+                if (cargo) cargo.addEventListener('change', () => { preencherPorCargo(cargo.value, seletores[i]); sincronizarCompararUrl(); });
+            });
+            seletores.forEach((sel) => { if (sel) sel.addEventListener('change', sincronizarCompararUrl); });
             if (anoSel) anoSel.addEventListener('change', sincronizarCompararUrl);
 
             aplicarUrl();
@@ -2215,9 +2290,11 @@
             const add = lerParametro('add');
             if (add) {
                 const tipoAdd = add.includes(':') ? add.split(':')[0] : 'dep';
-                if (cargo1) cargo1.value = tipoAdd;
-                preencherPorCargo(tipoAdd, sel1);
-                sel1.value = add;
+                const vazio = seletores.findIndex((sel) => sel && !sel.value);
+                const idx = vazio === -1 ? 0 : vazio;
+                if (cargos[idx]) cargos[idx].value = tipoAdd;
+                preencherPorCargo(tipoAdd, seletores[idx]);
+                seletores[idx].value = add;
             }
         } catch (erro) {
             notificar(erro.message, 'fa-triangle-exclamation');
@@ -2225,15 +2302,14 @@
     }
 
     async function comparar() {
-        const sel1 = $('#seletorDep1');
-        const sel2 = $('#seletorDep2');
+        const seletores = [1, 2, 3, 4].map((i) => $(`#seletorDep${i}`));
         const ano = Number($('#seletorAnoComparar')?.value || new Date().getFullYear());
-        const ids = [sel1.value, sel2.value].filter(Boolean);
+        const ids = seletores.map((s) => s && s.value).filter(Boolean);
         const container = $('#resultadoComparacao');
         if (!container) return;
 
         if (ids.length < 2) {
-            notificar('Selecione dois parlamentares para comparar.', 'fa-hand-pointer');
+            notificar('Selecione ao menos dois parlamentares para comparar.', 'fa-hand-pointer');
             return;
         }
 
@@ -2392,6 +2468,14 @@
             const rotuloPessoa = casa === 'senado' ? 'Senador' : 'Deputado';
             const ufUsuario = lerUfUsuario();
 
+            // IDs únicos por container (evita colisão entre placares de Câmara e Senado).
+            const sufixo = String(alvoId).replace(/[^a-zA-Z0-9]/g, '');
+            const idNome = `filtroVotoNome-${sufixo}`;
+            const idUf = `filtroVotoUf-${sufixo}`;
+            const idPartido = `filtroVotoPartido-${sufixo}`;
+            const idCorpo = `corpoVotos-${sufixo}`;
+            const idContagem = `contagemVotos-${sufixo}`;
+
             const ufs = [...new Set(votos.map((v) => acesso(v)?.uf).filter(Boolean))].sort();
             const partidos = [...new Set(votos.map((v) => acesso(v)?.partido).filter(Boolean))]
                 .sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -2409,20 +2493,20 @@
 
                     <div class="card" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
                         <div style="flex:1;min-width:180px;">
-                            <label for="filtroVotoNome" class="visually-hidden">Buscar ${rotuloPessoa.toLowerCase()} por nome</label>
-                            <input type="text" id="filtroVotoNome" placeholder="Buscar por nome..." autocomplete="off"
+                            <label for="${idNome}" class="visually-hidden">Buscar ${rotuloPessoa.toLowerCase()} por nome</label>
+                            <input type="text" id="${idNome}" placeholder="Buscar por nome..." autocomplete="off"
                                    style="width:100%;padding:10px 12px;border:2px solid var(--border-light);border-radius:var(--radius);font-family:var(--font-corpo);">
                         </div>
                         <div>
-                            <label for="filtroVotoUf" class="visually-hidden">Filtrar por UF</label>
-                            <select id="filtroVotoUf" aria-label="Filtrar por UF">
+                            <label for="${idUf}" class="visually-hidden">Filtrar por UF</label>
+                            <select id="${idUf}" aria-label="Filtrar por UF">
                                 <option value="">Todas as UFs</option>
                                 ${ufs.map((u) => `<option value="${escaparHtml(u)}">${escaparHtml(u)}</option>`).join('')}
                             </select>
                         </div>
                         <div>
-                            <label for="filtroVotoPartido" class="visually-hidden">Filtrar por partido</label>
-                            <select id="filtroVotoPartido" aria-label="Filtrar por partido">
+                            <label for="${idPartido}" class="visually-hidden">Filtrar por partido</label>
+                            <select id="${idPartido}" aria-label="Filtrar por partido">
                                 <option value="">Todos os partidos</option>
                                 ${partidos.map((p) => `<option value="${escaparHtml(p)}">${escaparHtml(p)}</option>`).join('')}
                             </select>
@@ -2432,17 +2516,17 @@
                     <div class="tabela-wrapper" style="margin-top:12px;">
                         <table class="tabela">
                             <thead><tr><th>${rotuloPessoa}</th><th>Partido</th><th>UF</th><th>Voto</th></tr></thead>
-                            <tbody id="corpoVotosFiltrados"></tbody>
+                            <tbody id="${idCorpo}"></tbody>
                         </table>
                     </div>
-                    <p id="contagemVotosFiltrados" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></p>
+                    <p id="${idContagem}" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></p>
                     ${ufUsuario ? `<p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Linhas destacadas: ${rotuloPessoa.toLowerCase()}s de <strong>${ufUsuario}</strong>.</p>` : ''}
                 </div>`;
 
             const renderVotos = () => {
-                const nome = ($('#filtroVotoNome')?.value || '').toLowerCase().trim();
-                const uf = $('#filtroVotoUf')?.value || '';
-                const partido = $('#filtroVotoPartido')?.value || '';
+                const nome = (caixa.querySelector(`#${idNome}`)?.value || '').toLowerCase().trim();
+                const uf = caixa.querySelector(`#${idUf}`)?.value || '';
+                const partido = caixa.querySelector(`#${idPartido}`)?.value || '';
                 const filtrados = votos.filter((v) => {
                     const d = acesso(v);
                     if (!d) return false;
@@ -2451,7 +2535,7 @@
                     if (partido && d.partido !== partido) return false;
                     return true;
                 });
-                const corpo = $('#corpoVotosFiltrados');
+                const corpo = caixa.querySelector(`#${idCorpo}`);
                 if (!corpo) return;
                 corpo.innerHTML = filtrados.length
                     ? filtrados.map((v) => {
@@ -2465,16 +2549,13 @@
                         </tr>`;
                     }).join('')
                     : '<tr><td colspan="4" class="estado-vazio">Nenhum voto com esses filtros.</td></tr>';
-                const cont = $('#contagemVotosFiltrados');
+                const cont = caixa.querySelector(`#${idContagem}`);
                 if (cont) cont.textContent = `Mostrando ${filtrados.length} de ${votos.length} ${rotuloPessoa.toLowerCase()}s.`;
             };
 
-            const nomeInput = $('#filtroVotoNome');
-            if (nomeInput) nomeInput.addEventListener('input', renderVotos);
-            const selUf = $('#filtroVotoUf');
-            if (selUf) selUf.addEventListener('change', renderVotos);
-            const selPartido = $('#filtroVotoPartido');
-            if (selPartido) selPartido.addEventListener('change', renderVotos);
+            caixa.querySelector(`#${idNome}`)?.addEventListener('input', renderVotos);
+            caixa.querySelector(`#${idUf}`)?.addEventListener('change', renderVotos);
+            caixa.querySelector(`#${idPartido}`)?.addEventListener('change', renderVotos);
             renderVotos();
         } catch (erro) {
             caixa.innerHTML = `<div class="erro"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><p>${escaparHtml(erro.message)}</p></div>`;
@@ -2623,13 +2704,28 @@
         else if ($('#formProposicao')) iniciarVotacaoProposicao();
     }
 
+    /* ---- Atualização automática de dados (ciclo de 24h) ---- */
+    function iniciarAtualizacaoAutomatica() {
+        const botaoHome = $('#botaoAtualizarHome');
+        if (botaoHome) botaoHome.addEventListener('click', () => carregarHome());
+
+        const INTERVALO = 24 * 60 * 60 * 1000; // 24h
+        setInterval(() => {
+            if (document.visibilityState === 'hidden') return;
+            if ($('#indicadoresGerais')) carregarHome();
+            else if ($('#seletorAnoDashboard')) carregarDashboard();
+        }, INTERVALO);
+    }
+
     /* ---- ARRANQUE ---- */
     document.addEventListener('DOMContentLoaded', () => {
         iniciarMenuResponsivo();
         iniciarBusca();
+        iniciarAutocomplete();
         popularFiltros();
         ligarExportacao();
         ligarCompartilhamento();
+        iniciarAtualizacaoAutomatica();
         rotearPagina();
     });
 })();

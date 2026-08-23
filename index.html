@@ -74,6 +74,14 @@
                 e padrões que valem a pena observar.
             </p>
 
+            <!-- Atualização de dados -->
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+                <button class="btn btn-sm btn-outline" id="botaoAtualizarHome" type="button">
+                    <i class="fa-solid fa-rotate" aria-hidden="true"></i> Atualizar
+                </button>
+                <span id="seloAtualizadoHome" style="font-size:12px;color:var(--text-muted);"></span>
+            </div>
+
             <!-- Indicadores rápidos -->
             <section aria-label="Indicadores gerais" id="indicadoresGerais">
                 <div class="card-grid">
@@ -99,41 +107,11 @@
             <!-- Políticos que você acompanha (localStorage) -->
             <div id="seguidosHome" aria-live="polite"></div>
 
-            <!-- Destaques / alertas recentes -->
+            <!-- Destaques / alertas recentes (sempre vindos da API) -->
             <section aria-labelledby="tituloDestaques">
                 <h3 class="section-title" id="tituloDestaques"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> O que está chamando atenção</h3>
-                <div id="destaques" class="card-grid">
-                    <div class="card destaque">
-                        <div class="destaque-icone" aria-hidden="true">🟡</div>
-                        <div>
-                            <h3>Variações atípicas de gastos</h3>
-                            <p>Alguns padrões de despesa chamam atenção. Os dados estão aqui — tire suas próprias conclusões.</p>
-                            <div class="destaque-tags">
-                                <span class="badge badge-cargo">Neutro</span>
-                                <span class="badge badge-uf">Transparente</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card destaque">
-                        <div class="destaque-icone" aria-hidden="true">💡</div>
-                        <div>
-                            <h3>Concentração de fornecedores</h3>
-                            <p>Quando a maior parte dos recursos vai para um único fornecedor, vale a pena olhar com atenção.</p>
-                            <div class="destaque-tags">
-                                <span class="badge badge-partido">Curioso</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card destaque">
-                        <div class="destaque-icone" aria-hidden="true">📊</div>
-                        <div>
-                            <h3>Comparações por estado</h3>
-                            <p>Gastos acima da média do mesmo estado podem ser apenas contexto — ou não. Você decide.</p>
-                            <div class="destaque-tags">
-                                <span class="badge badge-uf">Educativo</span>
-                            </div>
-                        </div>
-                    </div>
+                <div id="destaques" class="card-grid" aria-live="polite">
+                    <div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando destaques...</p></div>
                 </div>
             </section>
 

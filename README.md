@@ -65,8 +65,8 @@ O **Seu Político** reúne dados de fontes oficiais e apresenta:
 
 ## Funcionalidades
 
-- **Página inicial** — buscador (nome, partido, estado), indicadores gerais, destaques e **políticos que você acompanha** (localStorage).
-- **Dashboard** — gastos por categoria, evolução mensal, **gastos por partido e por UF**, top fornecedores e indicadores.
+- **Página inicial** — buscador com **autocomplete** (nome, partido, estado), indicadores gerais, destaques sempre vindos da API (nada estático), **políticos que você acompanha** (localStorage) e **atualização automática a cada 24h** (com botão "Atualizar" e selo "Atualizado às HH:MM").
+- **Dashboard** — gastos por categoria, evolução mensal, **gastos por partido e por UF**, top fornecedores e indicadores, com atualização automática de 24h.
 - **Deputados** — lista **completa** de deputados (todas as páginas) com atalhos para analisar/comparar.
 - **Perfil** — histórico de **TODAS as despesas de TODOS os anos** (seletor 2022–2026) com **filtros por tipo, mês e fornecedor** e **comprovante oficial** + análise com sinais (apenas padrões com **valores relevantes**, neutros e informativos) + bloco de **maiores fornecedores**. Inclui ainda o **registro de votações** do deputado em projetos de lei (com detalhe de quem votou a favor/contra), a **presença em Plenário** (presenças, faltas justificadas e injustificadas no ano) e os **discursos** em Plenário.
 - **Senadores** — lista e perfil com **todas as despesas CEAPS por ano** (cota parlamentar do Senado), com filtros e comprovante, além do **comparecimento em votações nominais** (presenças, faltas justificadas e injustificadas), o **registro de votações** (com placar) e os **discursos**.
@@ -74,7 +74,7 @@ O **Seu Político** reúne dados de fontes oficiais e apresenta:
 - **Presidente da República** — perfil informativo com resumo, foto e links oficiais, **mais análise de gastos completa**: todas as **viagens a serviço** e **contratos da Presidência**, com filtros, indicadores, sinais, **maiores fornecedores** e comprovante no Portal.
 - **Candidatos à Presidência** — candidatos registrados para 2026, ativo no período eleitoral (fonte pública, situação oficial no TSE).
 - **Votações** — lista de **votações recentes da Câmara e do Senado** (sem precisar pesquisar), com "Carregar mais"; busque uma proposição (ex.: `PL 1234/2025`) e veja o placar. Ao abrir uma votação, dá para **pesquisar por nome e filtrar por UF e partido** nos votos.
-- **Comparar** — gastos lado a lado com gráfico agrupado por categoria, **incluindo deputados × senadores no mesmo gráfico**.
+- **Comparar** — gastos lado a lado com gráfico agrupado por categoria, **de 2 a 4 políticos**, **incluindo deputados × senadores no mesmo gráfico**.
 - **Aprenda a fiscalizar** — guia educativo com passos para conferir os dados por conta própria.
 - **Seguir políticos** — salve perfis no navegador e acompanhe-os na página inicial.
 - **Exportação CSV/JSON** — download dos dados exibidos (respeitando os filtros aplicados) nas tabelas de despesas, viagens, contratos e comparações.
