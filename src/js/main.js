@@ -892,7 +892,8 @@
         set('#indMedia', 'Carregando...');
         set('#indVariacao', 'Carregando...');
         set('#indTipos', 'Carregando...');
-        set('#corpoTopFornecedores', '<tr><td colspan="3" class="carregando">Carregando...</td></tr>');
+        const corpoTop = $('#corpoTopFornecedores');
+        if (corpoTop) corpoTop.innerHTML = '<tr><td colspan="3" class="carregando">Carregando...</td></tr>';
 
         try {
             const dados = await SeuPoliticoAPI.analiseGeral(ano);
@@ -1003,17 +1004,19 @@
 
             // Tabela de fornecedores.
             const fornecedores = (dados.fornecedores || []).slice(0, 10);
-            set('#corpoTopFornecedores', fornecedores.length
-                ? fornecedores.map((f) => `
-                    <tr>
-                        <td>${escaparHtml(f.fornecedor)}</td>
-                        <td>${MotorAlerta.fmtBRL(f.valor)}</td>
-                        <td>${MotorAlerta.fmtNumero(f.percentual, 1)}%</td>
-                    </tr>`).join('')
-                : '<tr><td colspan="3" class="estado-vazio">Sem dados de fornecedores.</td></tr>');
+            if (corpoTop) {
+                corpoTop.innerHTML = fornecedores.length
+                    ? fornecedores.map((f) => `
+                        <tr>
+                            <td>${escaparHtml(f.fornecedor)}</td>
+                            <td>${MotorAlerta.fmtBRL(f.valor)}</td>
+                            <td>${MotorAlerta.fmtNumero(f.percentual, 1)}%</td>
+                        </tr>`).join('')
+                    : '<tr><td colspan="3" class="estado-vazio">Sem dados de fornecedores.</td></tr>';
+            }
         } catch (erro) {
             notificar(erro.message, 'fa-triangle-exclamation');
-            set('#corpoTopFornecedores', `<tr><td colspan="3" class="erro">${escaparHtml(erro.message)}</td></tr>`);
+            if (corpoTop) corpoTop.innerHTML = `<tr><td colspan="3" class="erro">${escaparHtml(erro.message)}</td></tr>`;
         } finally {
             carregandoDashboard = false;
             const selo = $('#seloAtualizadoDashboard');
