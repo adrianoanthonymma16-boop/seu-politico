@@ -111,21 +111,21 @@ async function obterDeputado(id, dadosLista = null) {
     } catch (erro) {
         console.warn(`[deputados] falha ao obter deputado ${id}, tentando fallback cota:`, erro.message);
         // Fallback: tenta construir deputado a partir do arquivo de cotas (sem depender da API da Câmara)
+        // Usa o índice por numeroDeputadoID (chaves individuais no Upstash) — rápido, sem baixar 3 ZIPs.
         try {
             const anoAtual = new Date().getFullYear();
-            const { obterRegistrosCota } = require('./cotas');
-            // Tenta anos recentes (2026, 2025, 2024)
-            for (const ano of [anoAtual, anoAtual - 1, anoAtual - 2]) {
+            const { obterDespesasPorIdDeputado } = require('./cotas');
+            for (const ano of [anoAtual, anoAtual - 1]) {
                 try {
-                    const registros = await obterRegistrosCota(ano);
-                    const rec = registros.find((r) => String(r.numeroDeputadoID) === String(id));
-                    if (rec) {
+                    const despesas = await obterDespesasPorIdDeputado(id, ano);
+                    if (Array.isArray(despesas) && despesas.length) {
+                        const primeira = despesas[0];
                         const depFallback = {
                             id: Number(id),
-                            nome: rec.nomeParlamentar || `Deputado ${id}`,
-                            nomeCivil: rec.nomeParlamentar || `Deputado ${id}`,
-                            partido: rec.siglaPartido || '—',
-                            uf: rec.siglaUF || '—',
+                            nome: primeira.nome || `Deputado ${id}`,
+                            nomeCivil: primeira.nome || `Deputado ${id}`,
+                            partido: '—',
+                            uf: '—',
                             urlFoto: `https://www.camara.leg.br/internet/deputado/bandep/${id}.jpg`,
                             email: '',
                             cargo: 'Deputado Federal',
@@ -172,32 +172,38 @@ async function obterTodasDespesas(id, ano, limitePaginas = 15) {
         if (dados.length === 0 || pagina >= ultima) break;
     }
 
-    // 2) Fallback para o arquivo oficial de cota parlamentar (fonte confiável).
-    if (viaRest.length === 0) {
-        try {
-            // Caminho rápido: lookup único por id (numeroDeputadoID), chave pequena no Upstash.
-            const { obterDespesasPorIdDeputado } = require('./cotas');
-            const viaIndice = await obterDespesasPorIdDeputado(id, ano);
-            if (Array.isArray(viaIndice) && viaIndice.length) {
-                await cache.gravar(chaveCache, viaIndice, 2 * 3600);
-                return viaIndice;
-            }
-
-            // Fallback por nome (deputados cujo id não casa com o numeroDeputadoID).
-            const deputado = await obterDeputado(id);
-            if (deputado) {
-                const { obterDespesasDeCota } = require('./cotas');
-                const viaCota = await obterDespesasDeCota(deputado.nome, ano);
-                if (Array.isArray(viaCota)) {
-                    await cache.gravar(chaveCache, viaCota, 2 * 3600);
-                    return viaCota;
-                }
-            }
-        } catch (erro) {
-            console.warn('[deputados] cotas indisponíveis:', erro.message);
-        }
+    // 2) Tenta o índice por ID (numeroDeputadoID) — chave pequena no Upstash.
+    let viaIndice = [];
+    try {
+        const { obterDespesasPorIdDeputado } = require('./cotas');
+        viaIndice = await obterDespesasPorIdDeputado(id, ano);
+    } catch (erro) {
+        console.warn('[deputados] índice por ID indisponível:', erro.message);
     }
 
+    if (Array.isArray(viaIndice) && viaIndice.length) {
+        await cache.gravar(chaveCache, viaIndice, 2 * 3600);
+        return viaIndice;
+    }
+
+    // 3) Fallback por nome (deputados cujo id não casa com o numeroDeputadoID).
+    let viaCota = [];
+    try {
+        const deputado = await obterDeputado(id);
+        if (deputado) {
+            const { obterDespesasDeCota } = require('./cotas');
+            viaCota = await obterDespesasDeCota(deputado.nome, ano);
+        }
+    } catch (erro) {
+        console.warn('[deputados] cota por nome indisponível:', erro.message);
+    }
+
+    if (Array.isArray(viaCota) && viaCota.length) {
+        await cache.gravar(chaveCache, viaCota, 2 * 3600);
+        return viaCota;
+    }
+
+    // 4) Último recurso: API REST da Câmara (pode estar vazia, mas é a fonte oficial).
     await cache.gravar(chaveCache, viaRest, 2 * 3600);
     return viaRest;
 }

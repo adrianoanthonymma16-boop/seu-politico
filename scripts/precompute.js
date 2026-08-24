@@ -81,7 +81,7 @@ async function buscarTodosDeputados() {
         for (const r of resultados) {
             todos.push(...(r.dados || []).map(normalizarDeputado));
         }
-        await AGUARDAR(100); // respira entre lotes
+        await AGUARDAR(100);
     }
     return todos;
 }
@@ -94,6 +94,85 @@ function extrairUltimaPagina(links, atual) {
         const url = new URL(ultimo.href);
         return Number(url.searchParams.get('pagina')) || atual;
     } catch { return atual; }
+}
+
+/* Popula o cache da cota no Upstash (chunks + índice por deputado + mapa nome→despesas normalizadas). */
+async function popularCacheCota(ano) {
+    console.log(`[precompute] populando cache de cota para ${ano}...`);
+    const { obterRegistrosCota, normalizarNome, normalizarDespesaCota } = require('../backend/services/cotas');
+    const cache = require('../backend/services/cache');
+    const inicio = Date.now();
+
+    try {
+        // Força a leitura do arquivo de cota e gravação dos chunks no Upstash
+        console.log(`[precompute] baixando registros de cota...`);
+        let registros;
+        try {
+            const registros = await obterRegistrosCota(ano);
+            console.log(`[precompute] cota: ${registros.length} registros lidos`);
+        } catch (e) {
+            console.error('[precompute] ERRO em obterRegistrosCota:', e.message);
+            console.error(e.stack);
+            throw e;
+        }
+
+        // Constrói o índice por deputado (por numeroDeputadoID) e grava chaves individuais no Upstash
+        console.log(`[precompute] construindo índice por deputado...`);
+        try {
+            const { obterIndiceDespesasPorId, obterRegistrosCota: obterReg, normalizarDespesaCota } = require('../backend/services/cotas');
+            // Força reconstrução completa e grava TODAS as chaves individuais (não usa cache parcial).
+            const todosRegistros = await obterReg(ano);
+            const indice = {};
+            for (const r of todosRegistros) {
+                const id = Number(r.numeroDeputadoID);
+                if (!id) continue;
+                if (!indice[id]) indice[id] = [];
+                indice[id].push(normalizarDespesaCota(r));
+            }
+            const ids = Object.keys(indice);
+            await Promise.all(ids.map((id) =>
+                cache.gravar(`cotas:dep:${id}:${ano}`, indice[id], 7 * 24 * 3600)
+            ));
+            await cache.gravar(`cotas:ids:${ano}`, ids, 7 * 24 * 3600);
+            console.log(`[precompute] índice cota: ${ids.length} deputados gravados em ${((Date.now() - inicio) / 1000).toFixed(1)}s`);
+        } catch (e) {
+            console.error('[precompute] ERRO em obterIndiceDespesasPorId:', e.message);
+            console.error(e.stack);
+            throw e;
+        }
+
+        // Bônus: constrói mapa nome_normalizado → numeroDeputadoID (pequeno, <8MB)
+        // para o runtime fazer lookup O(1) sem ler os 13 chunks brutos (~78MB).
+        console.log(`[precompute] construindo mapa nome→id...`);
+        let todosRegistros;
+        try {
+            todosRegistros = await obterRegistrosCota(ano);
+        } catch (e) {
+            console.error('[precompute] ERRO ao obter registros para mapa:', e.message);
+            console.error(e.stack);
+            throw e;
+        }
+        const indiceNomes = {};
+        for (const r of todosRegistros) {
+            const nomeNorm = normalizarNome(r.nomeParlamentar);
+            const id = Number(r.numeroDeputadoID);
+            if (!nomeNorm || !id) continue;
+            if (!indiceNomes[nomeNorm]) indiceNomes[nomeNorm] = id;
+        }
+
+        // Grava o mapa nome→id como uma única chave no Upstash (TTL 24h).
+        try {
+            await cache.gravar(`cotas:indice-nomes:${ano}`, indiceNomes, 24 * 3600);
+            console.log(`[precompute] mapa nome→id: ${Object.keys(indiceNomes).length} nomes cacheados em ${((Date.now() - inicio) / 1000).toFixed(1)}s`);
+        } catch (e) {
+            console.error('[precompute] ERRO ao gravar mapa nome→id:', e.message);
+            console.error('[precompute] Stack:', e.stack);
+        }
+    } catch (e) {
+        console.error('[precompute] ERRO em popularCacheCota:', e.message);
+        console.error('[precompute] Stack:', e.stack);
+        throw e;
+    }
 }
 
 async function precomputarAnaliseGeral(ano) {
@@ -124,7 +203,15 @@ async function main() {
         if (!SOFT) process.exitCode = 1;
     }
 
-    // 2) Análise geral para o ano atual
+    // 2) Popula cache de cota no Upstash (chunks + índice por deputado + mapa nome→despesas normalizadas)
+    try {
+        await popularCacheCota(ANO_PADRAO);
+    } catch (e) {
+        console.error('[precompute] ERRO cache cota:', e.message);
+        if (!SOFT) process.exitCode = 1;
+    }
+
+    // 3) Análise geral para o ano atual
     try {
         const analise = await precomputarAnaliseGeral(ANO_PADRAO);
         const saida = path.join(PUBLIC_DIR, `analise-geral-${ANO_PADRAO}.json`);

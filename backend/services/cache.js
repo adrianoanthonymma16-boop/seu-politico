@@ -65,6 +65,11 @@ async function obter(chave) {
             }
         } catch (erro) {
             console.error('[cache] erro ao ler do Upstash:', erro.message);
+            console.error('[cache] Stack:', erro.stack);
+            // Se for erro de parsing JSON, o Upstash pode ter retornado resposta inválida
+            if (erro.message.includes('JSON') || erro.message.includes('parse') || erro.message.includes('Unexpected end of input')) {
+                console.error('[cache] Possível resposta inválida do Upstash (não-JSON ou vazio)');
+            }
         }
     }
 
@@ -97,8 +102,8 @@ async function gravar(chave, payload, ttlSegundos = 3600) {
         return;
     }
 
-    /* 2) Upstash Redis — limite de 10MB por request; ignora payloads grandes
-          (array de cotas ~81MB) caindo para memória, sem poluir o log. */
+/* 2) Upstash Redis — limite de 10MB por request; ignora payloads grandes
+      (array de cotas ~81MB) caindo para memória, sem poluir o log. */
     if (redis) {
         try {
             const bytes = Buffer.byteLength(JSON.stringify(payload));
@@ -110,7 +115,11 @@ async function gravar(chave, payload, ttlSegundos = 3600) {
                 return;
             }
         } catch (erro) {
-            console.error('[cache] erro ao gravar no Upstash:', String(erro.message || erro).slice(0, 200));
+            console.error('[cache] erro ao gravar no Upstash:', erro.message);
+            console.error('[cache] Stack:', erro.stack);
+            if (erro.message.includes('JSON') || erro.message.includes('parse') || erro.message.includes('Unexpected end of input')) {
+                console.error('[cache] Possível erro de serialização JSON ou resposta inválida do Upstash');
+            }
         }
     }
 
