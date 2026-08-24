@@ -57,7 +57,17 @@
         btn.title = 'Alternar tema claro/escuro';
         btn.innerHTML = '<i class="fa-solid fa-moon" aria-hidden="true"></i>';
         btn.addEventListener('click', alternar);
-        alvo.appendChild(btn);
+
+        // Inserir ANTES do botão do menu (à esquerda do menu hambúrguer)
+        const botaoMenu = document.getElementById('botaoMenu');
+        const alvo = document.querySelector('header section');
+        if (!alvo) return;
+
+        if (botaoMenu) {
+            alvo.insertBefore(btn, botaoMenu);
+        } else {
+            alvo.appendChild(btn);
+        }
 
         const atual = document.documentElement.getAttribute('data-tema');
         atualizarIcone(atual);
