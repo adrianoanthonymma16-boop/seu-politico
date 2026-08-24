@@ -19,25 +19,6 @@
                     <i class="fa-solid fa-bars" aria-hidden="true"></i>
                 </button>
             </div>
-            <div id="Pesquisar" role="search">
-                <form class="search-wrapper" id="formBuscaSenado" action="senadores.html" method="get">
-                    <label class="visually-hidden" for="campoBuscaSenado">Buscar senador por nome</label>
-                    <input type="text" id="campoBuscaSenado" name="nome" placeholder="Buscar senador por nome..." autocomplete="off">
-                    <button type="submit" aria-label="Buscar senador">
-                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                    </button>
-                </form>
-                <div class="filtros-busca">
-                    <label class="visually-hidden" for="filtroPartidoSenado">Partido</label>
-                    <select id="filtroPartidoSenado" name="partido" aria-label="Filtrar por partido">
-                        <option value="">Todos os partidos</option>
-                    </select>
-                    <label class="visually-hidden" for="filtroUfSenado">Estado</label>
-                    <select id="filtroUfSenado" name="uf" aria-label="Filtrar por estado">
-                        <option value="">Todos os estados</option>
-                    </select>
-                </div>
-            </div>
         </section>
     </header>
 
@@ -63,6 +44,7 @@
         </aside>
 
         <main class="main-content" id="conteudoPrincipal">
+            <div id="buscaContextual"></div>
             <h2 class="page-title" id="tituloSenadores">Senadores em exercício</h2>
             <p class="page-subtitle">
                 Senadores com dados oficiais do Senado Federal. As despesas analisadas são da
@@ -120,6 +102,15 @@
     <script src="src/assets/vendor/chart.umd.min.js"></script>
     <script src="src/js/api.js"></script>
     <script src="src/js/alerts.js"></script>
+    <script src="src/js/search.js"></script>
+    <script>
+        SeuPoliticoBusca.init({
+            alvo: '#buscaContextual',
+            placeholder: 'Buscar senador por nome...',
+            destino: 'senadores.html',
+            filtros: ['partido', 'uf'],
+        });
+    </script>
     <script src="src/js/main.js"></script>
 </body>
 </html>

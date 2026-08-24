@@ -15,8 +15,9 @@
   },
   "dependencies": {
     "@upstash/redis": "^1.38.2",
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.5.18",
     "cors": "^2.8.5",
+    "csv-parse": "^7.0.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "pg": "^8.12.0"

@@ -410,6 +410,43 @@ async function obterPresidente() {
 
 /* ---- Candidatos à Presidência 2026 ---- */
 async function obterCandidatos() {
+    // 1) Preferência: arquivo TSE processado (ficha limpa + links oficiais).
+    try {
+        const tse = require(path.join(__dirname, '..', '..', 'data', 'candidatos-tse-2026.json'));
+        if (tse && Array.isArray(tse.candidatos) && tse.candidatos.length) {
+            return {
+                eleicao: {
+                    ano: 2026,
+                    dataReferencia: '4 de outubro de 2026 (1º turno)',
+                    periodoAtivo: periodoEleitoral(),
+                },
+                resumo: tse.resumo || 'Candidatos à Presidência da República 2026 — dados oficiais do TSE.',
+                candidatos: tse.candidatos.map((c) => ({
+                    numero: c.numero,
+                    nome: c.nome,
+                    nomeUrna: c.nomeUrna || c.nome,
+                    partido: c.partido,
+                    vice: c.vice || null,
+                    coligacao: c.coligacao || '',
+                    foto: c.fotoUrl || c.foto || null,
+                    linkWikipedia: c.linkWikipedia || '',
+                    cpf: c.cpf || '',
+                    sqCandidato: c.sqCandidato || '',
+                    fichaLimpa: c.fichaLimpa != null ? c.fichaLimpa : null,
+                    situacao: c.situacao || '',
+                    links: c.links || {},
+                })),
+                links: {
+                    wikipedia: '',
+                    tse: 'https://www.tse.jus.br/eleicoes/eleicoes-2026',
+                    divulgacao: 'https://divulgacandcontas.tse.jus.br',
+                },
+                fonte: 'TSE',
+            };
+        }
+    } catch (e) { /* arquivo TSE não disponível → segue para Wikipedia */ }
+
+    // 2) Fallback: Wikipedia (com links genéricos de validação).
     try {
         const [artigo, wikitext] = await Promise.all([
             obterArtigo(ARTIGO_ELEICAO, 3),
@@ -424,6 +461,15 @@ async function obterCandidatos() {
             coligacao: c.coligacao,
             foto: c.foto ? WIKI_COMUNS_FOTO(c.foto) : null,
             linkWikipedia: c.nomePagina ? WIKI_ARTIGO(c.nomePagina) : artigo.url,
+            fichaLimpa: null,
+            situacao: '',
+            cpf: '',
+            sqCandidato: '',
+            links: {
+                divulgacandcontas: 'https://divulgacandcontas.tse.jus.br',
+                datajud: 'https://datajud.cnj.jus.br',
+                pf: 'https://servicos.pf.gov.br/epol-sinic-publico/',
+            },
         }));
 
         return {
@@ -439,9 +485,10 @@ async function obterCandidatos() {
                 tse: 'https://www.tse.jus.br/eleicoes/eleicoes-2026',
                 divulgacao: 'https://divulgacandcontas.tse.jus.br',
             },
+            fonte: 'Wikipedia',
         };
     } catch (e) {
-        // Fallback: arquivo estático gerado no build (evita depender da Wikipédia).
+        // Fallback final: arquivo estático simples.
         try {
             return require(path.join(__dirname, '..', '..', 'data', 'candidatos.json'));
         } catch (e2) { throw e; }

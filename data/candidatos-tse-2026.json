@@ -1,0 +1,254 @@
+{
+  "atualizadoEm": "2026-08-24T18:35:01.554Z",
+  "total": 13,
+  "resumo": "Candidatos à Presidência da República 2026 — dados oficiais do TSE (links de verificação).",
+  "candidatos": [
+    {
+      "numero": 13,
+      "nome": "Lula",
+      "nomeUrna": "Lula",
+      "partido": "PT",
+      "vice": "Geraldo Alckmin",
+      "coligacao": "Brasil Pronto pra Mais, (FE Brasil (PT, PV e PCdoB), PSB, Fed. PSOL REDE (PSOL e REDE) e PDT)",
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/08.08.2026_-_FOTOS_OFICIAIS_-_55450293419.jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Luiz_Inácio_Lula_da_Silva",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 14,
+      "nome": "Renan Santos",
+      "nomeUrna": "Renan Santos",
+      "partido": "MISSÃO",
+      "vice": "Coronel Medina",
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_RENAN_SANTOS_CANDIDATO_PRESIDENTE_TSE_(280002540694).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Renan_Santos",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 16,
+      "nome": "Hertz Dias",
+      "nomeUrna": "Hertz Dias",
+      "partido": "PSTU",
+      "vice": null,
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_HERTZ_DIAS_CANDIDATO_PRESIDENTE_TSE_(280002541457).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Hertz_Dias",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 21,
+      "nome": "Edmilson Costa",
+      "nomeUrna": "Edmilson Costa",
+      "partido": "PCB",
+      "vice": null,
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_EDMILSON_COSTA_CANDIDATO_PRESIDENTE_TSE_(280002551975).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Edmilson_Costa",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 22,
+      "nome": "Flávio Bolsonaro",
+      "nomeUrna": "Flávio Bolsonaro",
+      "partido": "PL",
+      "vice": "Alfredo Gaspar",
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_FLAVIO_BOLSONARO_CANDIDATO_PRESIDENTE_TSE_(280002551544).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Flávio_Bolsonaro",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 27,
+      "nome": "Clariana Barão",
+      "nomeUrna": "Clariana Barão",
+      "partido": "DC",
+      "vice": null,
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_CLARIANA_BARAO_CANDIDATA_PRESIDENTE_TSE_(280002552484).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Clariana_Barão",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 28,
+      "nome": "Pablo Marçal",
+      "nomeUrna": "Pablo Marçal",
+      "partido": "PRTB",
+      "vice": "Leonardo Avalanche",
+      "coligacao": null,
+      "foto": null,
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Pablo_Marçal",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 29,
+      "nome": "Rui Costa Pimenta",
+      "nomeUrna": "Rui Costa Pimenta",
+      "partido": "PCO",
+      "vice": null,
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_RUI_COSTA_PIMENTA_CANDIDATO_PRESIDENTE_TSE_(280002552487).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Rui_Costa_Pimenta",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 30,
+      "nome": "Zema",
+      "nomeUrna": "Zema",
+      "partido": "NOVO",
+      "vice": "Eduardo Girão",
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_ZEMA_CANDIDATO_PRESIDENTE_TSE_(280002539826).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Romeu_Zema",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 35,
+      "nome": "Veterinário Wilson Grassi",
+      "nomeUrna": "Veterinário Wilson Grassi",
+      "partido": "Democrata",
+      "vice": "Suêd Haidar",
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_VETERIN%C3%81RIO_WILSON_GRASSI_CANDIDATO_PRESIDENTE_TSE_(280002548139).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Wilson_Grassi",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 55,
+      "nome": "Ronaldo Caiado",
+      "nomeUrna": "Ronaldo Caiado",
+      "partido": "PSD",
+      "vice": "Gilberto Kassab",
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_RONALDO_CAIADO_CANDIDATO_PRESIDENTE_TSE_(280002551932).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Ronaldo_Caiado",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 70,
+      "nome": "Escritor Augusto Cury",
+      "nomeUrna": "Escritor Augusto Cury",
+      "partido": "Avante",
+      "vice": "Júlio Delgado",
+      "coligacao": "Brasil dos Nossos Sonhos, (Avante e Agir)",
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_ESCRITOR_AUGUSTO_CURY_CANDIDATO_PRESIDENTE_TSE_(280002551547).jpg?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Augusto_Cury",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    },
+    {
+      "numero": 80,
+      "nome": "Samara",
+      "nomeUrna": "Samara",
+      "partido": "UP",
+      "vice": null,
+      "coligacao": null,
+      "foto": "https://commons.wikimedia.org/wiki/Special:FilePath/2026_SAMARA_CANDIDATA_PRESIDENTE_TSE_(280002538811).JPG?width=240",
+      "linkWikipedia": "https://pt.wikipedia.org/wiki/Samara_Martins",
+      "cpf": "",
+      "sqCandidato": "",
+      "fichaLimpa": null,
+      "situacao": "",
+      "links": {
+        "divulgacandcontas": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+        "datajud": "https://datajud.cnj.jus.br/",
+        "pf": "https://servicos.pf.gov.br/epol-sinic-publico/"
+      }
+    }
+  ]
+}

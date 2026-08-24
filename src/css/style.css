@@ -417,6 +417,117 @@ aside nav ul li a.ativo i {
 }
 
 /* ==========================================================================
+   MENU SANFONA (accordion)
+   --------------------------------------------------------------------------
+   O JS transforma a lista plana em grupos colapsáveis (`.menu-grupo`).
+   As 3 media queries definem a apresentação:
+     - <=500px            → sanfona compacta, itens centralizados
+     - 501px–700px        → sanfona, itens centralizados, toques maiores
+     - >=701px            → menu plano (cabeçalhos ocultos, todos os itens visíveis)
+   ========================================================================== */
+
+aside nav .menu-grupo {
+    border-bottom: 0.5px solid var(--border-light);
+}
+aside nav .menu-grupo:last-child {
+    border-bottom: none;
+}
+
+/* Cabeçalho do grupo (botão que expande/colapsa) */
+aside nav .menu-grupo-cabecalho {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-corpo);
+    font-size: 15px;
+    color: var(--text-secondary);
+    text-align: left;
+    transition: background 0.3s, color 0.3s;
+}
+aside nav .menu-grupo-cabecalho:hover {
+    background-color: var(--hover-bg);
+    color: var(--text-primary);
+}
+aside nav .menu-grupo-cabecalho > i:first-child {
+    width: 18px;
+    text-align: center;
+    color: var(--text-muted);
+    transition: color 0.3s;
+}
+aside nav .menu-grupo-cabecalho .seta {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--text-muted);
+    transition: transform 0.3s ease;
+}
+
+/* Sub-lista colapsável */
+aside nav .menu-grupo-itens {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.35s ease, opacity 0.3s ease;
+}
+aside nav .menu-grupo.aberto .menu-grupo-itens {
+    max-height: 1200px;
+    opacity: 1;
+}
+aside nav .menu-grupo.aberto .menu-grupo-cabecalho .seta {
+    transform: rotate(180deg);
+}
+aside nav .menu-grupo-itens li a {
+    padding-left: 28px;
+}
+
+/* ==========================================================================
+   BUSCA CONTEXTUAL + FICHA DE CANDIDATOS
+   ========================================================================== */
+.busca-contextual {
+    margin-bottom: 6px;
+}
+
+.ficha-limpa-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.ficha-limpa-ok {
+    background: rgba(46, 160, 67, 0.14);
+    color: #1a7f37;
+}
+.ficha-limpa-restricao {
+    background: rgba(218, 54, 51, 0.13);
+    color: #b23b3b;
+}
+[data-tema="escuro"] .ficha-limpa-ok {
+    background: rgba(63, 185, 80, 0.18);
+    color: #6ee7a0;
+}
+[data-tema="escuro"] .ficha-limpa-restricao {
+    background: rgba(248, 81, 73, 0.18);
+    color: #fca5a5;
+}
+
+.candidato-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.candidato-links .btn {
+    justify-content: center;
+}
+
+/* ==========================================================================
    COMPONENTES GERAIS
    ========================================================================== */
 
@@ -1039,7 +1150,7 @@ body.menu-aberto {
     overflow: hidden;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 700px) {
     .page-layout {
         grid-template-columns: 1fr;
         padding-top: var(--header-height);
@@ -1134,6 +1245,32 @@ body.menu-aberto {
         font-size: 15px;
     }
 
+    /* Cabeçalhos da sanfona com área de toque confortável */
+    aside nav .menu-grupo-cabecalho {
+        padding: 14px 18px;
+        min-height: 46px;
+        font-size: 15px;
+        font-weight: 600;
+        justify-content: flex-start;
+    }
+
+    /* Itens da sanfona centralizados (conteúdo e texto) */
+    aside nav .menu-grupo-itens {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    aside nav .menu-grupo-itens li {
+        display: flex;
+        justify-content: center;
+    }
+    aside nav .menu-grupo-itens li a {
+        justify-content: center;
+        text-align: center;
+        gap: 8px;
+        padding: 14px 12px;
+    }
+
     .main-content {
         padding: 16px;
     }
@@ -1221,4 +1358,387 @@ body.menu-aberto {
         grid-template-columns: 1fr 1fr;
         gap: 30px;
     }
+}
+
+/* ==========================================================================
+   MENU SANFONA — 3 BREAKPOINTS
+   --------------------------------------------------------------------------
+   De acordo com o pedido: telas de 500px, 700px e as demais (>700px).
+   ========================================================================== */
+
+/* 1) Telas MUITO pequenas (<=500px): sanfona compacta */
+@media (max-width: 500px) {
+    aside nav .menu-grupo-cabecalho {
+        padding: 12px 14px;
+        font-size: 14px;
+    }
+    aside nav .menu-grupo-itens li a {
+        font-size: 14px;
+        padding: 12px 10px;
+    }
+    aside nav .menu-grupo-cabecalho .seta {
+        font-size: 12px;
+    }
+}
+
+/* 2) Telas médias (501px–700px): sanfona padrão (herda o bloco max-width:700px) */
+@media (min-width: 501px) and (max-width: 700px) {
+    aside nav .menu-grupo-cabecalho {
+        font-size: 15px;
+        padding: 14px 18px;
+    }
+    aside nav .menu-grupo-itens li a {
+        font-size: 15px;
+        padding: 14px 12px;
+    }
+}
+
+/* ==========================================================================
+   MODAL — Ficha do Candidato
+   ========================================================================== */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal[hidden] {
+    display: none;
+}
+
+.modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-container {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalEntrada 0.25s ease-out;
+}
+
+@keyframes modalEntrada {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-overlay {
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-fecha {
+    position: absolute;
+    inset: 0;
+}
+
+.modal-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modal-fechar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: var(--hover-bg);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+}
+
+.modal-fechar:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+.modal-fechar:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.modal-corpo {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.modal-fechar-abaixo {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+}
+
+/* Estado de carregamento no modal */
+.modal-corpo .carregando {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+
+.modal-corpo .carregando i {
+    font-size: 1.5rem;
+    margin-right: 10px;
+    color: var(--primary);
+}
+
+.modal-fechar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: var(--hover-bg);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+}
+
+.modal-fechar:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+.modal-fechar:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.modal-fechar i {
+    font-size: 1.125rem;
+}
+
+/* Corpo do modal - conteúdo da ficha */
+.modal-corpo {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.ficha-candidato {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ficha-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.ficha-avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--bg-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ficha-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ficha-avatar i {
+    font-size: 48px;
+    color: var(--text-muted);
+}
+
+.ficha-nome {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.ficha-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.ficha-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ficha-partido {
+    background: var(--primary);
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.ficha-numero {
+    background: var(--bg-muted);
+    color: var(--text-primary);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.ficha-secao {
+    margin-top: 8px;
+}
+
+.ficha-secao-titulo {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.ficha-linha {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.ficha-linha:last-child {
+    border-bottom: none;
+}
+
+.ficha-label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.ficha-valor {
+    color: var(--text-primary);
+    font-weight: 500;
+    text-align: right;
+    max-width: 65%;
+    word-break: break-word;
+}
+
+.ficha-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.ficha-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--primary);
+    background: var(--primary-bg);
+    border-radius: var(--radius);
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+.ficha-link:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+.ficha-link i {
+    font-size: 0.875rem;
+}
+
+/* Responsivo para modal */
+@media (max-width: 480px) {
+    .modal-container {
+        margin: 10px;
+        max-height: 95vh;
+    }
+    
+    .modal-header {
+        padding: 14px 16px;
+    }
+    
+    .modal-corpo {
+        padding: 16px;
+    }
+    
+    .ficha-avatar {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .ficha-nome {
+        font-size: 1.25rem;
+    }
+}
+
+/* Acessibilidade: foco visível */
+.modal-fechar:focus-visible,
+.ficha-link:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
 }
