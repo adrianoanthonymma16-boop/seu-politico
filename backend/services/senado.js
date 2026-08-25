@@ -187,23 +187,40 @@ async function sincronizarCeaps(ano) {
 
 /* ---- Despesas CEAPS de um senador (pelo nome) ---- */
 async function obterDespesasCeaps(nomeParlamentar, ano) {
-    if (!habilitado) return null;
+    // 1) PostgreSQL (se disponível).
+    if (habilitado) {
+        let indice = await cache.obter(`senado:ceaps:indice:${ano}`);
+        if (!indice) {
+            await sincronizarCeaps(ano);
+            indice = await cache.obter(`senado:ceaps:indice:${ano}`);
+        }
+        if (!indice) return null;
 
-    let indice = await cache.obter(`senado:ceaps:indice:${ano}`);
-    if (!indice) {
-        await sincronizarCeaps(ano);
-        indice = await cache.obter(`senado:ceaps:indice:${ano}`);
+        const senadorId = indice[normalizarNome(nomeParlamentar)];
+        if (!senadorId) return null;
+
+        const { rows } = await pool.query(
+            'SELECT dados FROM despesas_senadores WHERE senador_id = $1 AND ano = $2',
+            [senadorId, Number(ano)]
+        );
+        return rows.length ? rows[0].dados : [];
     }
-    if (!indice) return null;
 
-    const senadorId = indice[normalizarNome(nomeParlamentar)];
-    if (!senadorId) return null;
+    // 2) Sem PostgreSQL: busca API e filtra por nome (cache integral em Upstash).
+    const chaveRegistros = `senado:ceaps:registros:${ano}`;
+    let registros = await cache.obter(chaveRegistros);
+    if (!registros) {
+        const resposta = await requisitarSenadoAdm(`senadores/despesas_ceaps/${ano}`);
+        registros = Array.isArray(resposta) ? resposta : (resposta.data || []);
+        // Cache por 12h (dados de um ano mudam pouco).
+        await cache.gravar(chaveRegistros, registros, 12 * 3600);
+    }
 
-    const { rows } = await pool.query(
-        'SELECT dados FROM despesas_senadores WHERE senador_id = $1 AND ano = $2',
-        [senadorId, Number(ano)]
-    );
-    return rows.length ? rows[0].dados : [];
+    const nomeNorm = normalizarNome(nomeParlamentar);
+    const despesas = registros
+        .filter((r) => normalizarNome(r.nomeSenador) === nomeNorm)
+        .map(normalizarDespesaCeaps);
+    return despesas;
 }
 
 /* ---- Mock de senadores (demonstração) ---- */

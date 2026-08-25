@@ -41,11 +41,15 @@ async function calcularMediaUf(uf, ano) {
     const { dados } = await listarSenadores({ uf });
     const totais = [];
     for (const sen of dados.slice(0, 8)) {
-        if (MOCK) {
-            totais.push(mockDespesasSenador(sen.id, ano).reduce((a, d) => a + d.valor, 0));
-        } else {
-            const despesas = await obterDespesasCeaps(sen.nome, ano);
-            totais.push((despesas || []).reduce((a, d) => a + d.valor, 0));
+        try {
+            if (MOCK) {
+                totais.push(mockDespesasSenador(sen.id, ano).reduce((a, d) => a + d.valor, 0));
+            } else {
+                const despesas = await obterDespesasCeaps(sen.nome, ano);
+                totais.push((despesas || []).reduce((a, d) => a + d.valor, 0));
+            }
+        } catch (e) {
+            // Ignora senadores com erro individual.
         }
     }
     const media = totais.length ? totais.reduce((a, b) => a + b, 0) / totais.length : 0;
@@ -59,8 +63,13 @@ async function obterDespesasDoSenador(id, ano) {
 
     const senador = await obterSenador(id);
     if (!senador) return [];
-    const despesas = await obterDespesasCeaps(senador.nome, ano);
-    return Array.isArray(despesas) ? despesas : [];
+    try {
+        const despesas = await obterDespesasCeaps(senador.nome, ano);
+        return Array.isArray(despesas) ? despesas : [];
+    } catch (e) {
+        console.warn('[senado/despesas]', senador.nome, e.message);
+        return [];
+    }
 }
 
 /** GET /api/senado/senadores?nome=&partido=&uf= */
