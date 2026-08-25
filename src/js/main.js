@@ -2112,7 +2112,7 @@
 
         try {
             const [votacoes, dadosAnalise] = await Promise.all([
-                SeuPoliticoAPI.obterVotacoesDeputado(id, ano).catch(() => []),
+                SeuPoliticoAPI.obterVotacoesDeputado(id, { ano }).catch(() => []),
                 SeuPoliticoAPI.analiseDeputado(id, ano).catch(() => null),
             ]);
 
