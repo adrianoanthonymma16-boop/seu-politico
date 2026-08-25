@@ -2711,18 +2711,6 @@
                         ${c.vice ? `<p style="font-size:13px;color:var(--text-secondary);text-align:center;">Vice: <strong>${escaparHtml(c.vice)}</strong></p>` : ''}
                         ${c.coligacao ? `<p style="font-size:12px;color:var(--text-muted);text-align:center;">${escaparHtml(c.coligacao)}</p>` : ''}
                         <div class="candidato-links">
-                            ${c.links && c.links.divulgacandcontas ? `
-                                <a href="${escaparHtml(c.links.divulgacandcontas)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">
-                                    <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Ficha TSE
-                                </a>` : ''}
-                            ${c.links && c.links.datajud ? `
-                                <a href="${escaparHtml(c.links.datajud)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">
-                                    <i class="fa-solid fa-gavel" aria-hidden="true"></i> Processos
-                                </a>` : ''}
-                            ${c.links && c.links.pf ? `
-                                <a href="${escaparHtml(c.links.pf)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">
-                                    <i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Certidão PF
-                                </a>` : ''}
                             ${c.linkWikipedia ? `
                                 <a href="${escaparHtml(c.linkWikipedia)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">
                                     <i class="fa-brands fa-wikipedia-w" aria-hidden="true"></i> Perfil
@@ -2799,9 +2787,6 @@
                     <div class="ficha-linha"><span class="ficha-label">Número</span><span class="ficha-valor">${escaparHtml(candidato.numero || '—')}</span></div>
                 </div>
                 <div class="ficha-links">
-                    ${candidato.links && candidato.links.divulgacandcontas ? `<a class="ficha-link" href="${escaparHtml(candidato.links.divulgacandcontas)}" target="_blank" rel="noopener"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Ficha TSE</a>` : ''}
-                    ${candidato.links && candidato.links.datajud ? `<a class="ficha-link" href="${escaparHtml(candidato.links.datajud)}" target="_blank" rel="noopener"><i class="fa-solid fa-gavel" aria-hidden="true"></i> Processos</a>` : ''}
-                    ${candidato.links && candidato.links.pf ? `<a class="ficha-link" href="${escaparHtml(candidato.links.pf)}" target="_blank" rel="noopener"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Certidão PF</a>` : ''}
                     ${candidato.linkWikipedia ? `<a class="ficha-link" href="${escaparHtml(candidato.linkWikipedia)}" target="_blank" rel="noopener"><i class="fa-brands fa-wikipedia-w" aria-hidden="true"></i> Perfil</a>` : ''}
                 </div>
             </div>`;
