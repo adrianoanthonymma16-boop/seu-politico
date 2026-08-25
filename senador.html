@@ -148,6 +148,16 @@
                         <input type="number" id="filtroValorMaxSenador" min="0" step="0.01" placeholder="R$ máx." aria-label="Valor máximo" style="width:110px;">
                     </div>
                     <div>
+                        <label for="filtroOrdenacaoSenador" class="visually-hidden">Ordenar por</label>
+                        <select id="filtroOrdenacaoSenador" aria-label="Ordenar despesas">
+                            <option value="">Ordenar: padrão</option>
+                            <option value="valor-desc">Maior valor</option>
+                            <option value="valor-asc">Menor valor</option>
+                            <option value="data-desc">Mais recente</option>
+                            <option value="data-asc">Mais antigo</option>
+                        </select>
+                    </div>
+                    <div>
                         <button class="btn btn-sm btn-outline" id="botaoLimparFiltrosSenador" type="button">
                             <i class="fa-solid fa-broom" aria-hidden="true"></i> Limpar
                         </button>

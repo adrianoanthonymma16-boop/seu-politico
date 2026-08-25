@@ -235,7 +235,7 @@
 
         const sincronizar = () => { renderer(); gravarFiltrosNaUrl(prefixo); };
 
-        ['filtroTipo', 'filtroMes', 'filtroDataInicio', 'filtroDataFim', 'filtroValorMin', 'filtroValorMax'].forEach((base) => {
+        ['filtroTipo', 'filtroMes', 'filtroDataInicio', 'filtroDataFim', 'filtroValorMin', 'filtroValorMax', 'filtroOrdenacao'].forEach((base) => {
             const el = $(`#${base}${prefixo}`);
             if (el) el.addEventListener('change', sincronizar);
         });
@@ -1645,7 +1645,14 @@
         const contagem = $('#contagemDespesasDeputado');
         if (!corpo) return;
 
-        const filtradas = filtrarDespesas(perfilDespesas, obterFiltrosDeControles('Deputado'));
+        let filtradas = filtrarDespesas(perfilDespesas, obterFiltrosDeControles('Deputado'));
+
+        // Ordenação (maior/menor valor, mais recente/antigo).
+        const ordenacao = ($('#filtroOrdenacaoDeputado')?.value || '').trim();
+        if (ordenacao === 'valor-desc') filtradas.sort((a, b) => (b.valor || 0) - (a.valor || 0));
+        else if (ordenacao === 'valor-asc') filtradas.sort((a, b) => (a.valor || 0) - (b.valor || 0));
+        else if (ordenacao === 'data-desc') filtradas.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+        else if (ordenacao === 'data-asc') filtradas.sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')));
 
         if (contagem) contagem.textContent = `Exibindo ${filtradas.length} de ${perfilDespesas.length} despesas.`;
         corpo.innerHTML = filtradas.length
@@ -2314,7 +2321,14 @@
         const contagem = $('#contagemDespesasSenador');
         if (!corpo) return;
 
-        const filtradas = filtrarDespesas(senadorDespesas, obterFiltrosDeControles('Senador'));
+        let filtradas = filtrarDespesas(senadorDespesas, obterFiltrosDeControles('Senador'));
+
+        // Ordenação (maior/menor valor, mais recente/antigo).
+        const ordenacao = ($('#filtroOrdenacaoSenador')?.value || '').trim();
+        if (ordenacao === 'valor-desc') filtradas.sort((a, b) => (b.valor || 0) - (a.valor || 0));
+        else if (ordenacao === 'valor-asc') filtradas.sort((a, b) => (a.valor || 0) - (b.valor || 0));
+        else if (ordenacao === 'data-desc') filtradas.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+        else if (ordenacao === 'data-asc') filtradas.sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')));
 
         const linkPerfil = senadorAtualId
             ? `https://www25.senado.leg.br/web/senadores/senador/-/perfil/${encodeURIComponent(senadorAtualId)}`
