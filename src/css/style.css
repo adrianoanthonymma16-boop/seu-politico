@@ -1762,6 +1762,156 @@ body.menu-aberto {
     }
 }
 
+/* ======================================================================
+   PRESENÇA SIMPLIFICADA (barra visual no perfil)
+   ====================================================================== */
+.presenca-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.presenca-porcento {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: var(--font-corpo);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.presenca-barra-fundo {
+    width: 100%;
+    height: 10px;
+    background: var(--border-light);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 12px;
+}
+
+.presenca-barra-preenchimento {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.8s ease, background-color 0.3s;
+}
+
+.presenca-detalhes {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.presenca-detalhes span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ======================================================================
+   COMPARAÇÃO COM MÉDIA (card indicator)
+   ====================================================================== */
+.card-comparacao {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.card-comparacao.acima {
+    color: #b23b3b;
+    background: rgba(178, 59, 59, 0.1);
+}
+
+.card-comparacao.abaixo {
+    color: #2e7d32;
+    background: rgba(46, 125, 50, 0.1);
+}
+
+.card-comparacao.igual {
+    color: var(--text-muted);
+    background: var(--hover-bg);
+}
+
+/* ======================================================================
+   RANKING (página dedicada)
+   ====================================================================== */
+.ranking-pos {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    min-width: 36px;
+    text-align: center;
+}
+
+.ranking-pos.top3 {
+    color: #f0ad4e;
+}
+
+.ranking-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-light);
+    transition: background 0.15s;
+}
+
+.ranking-item:hover {
+    background: var(--hover-bg);
+}
+
+.ranking-item:last-child {
+    border-bottom: none;
+}
+
+/* ======================================================================
+   EVOLUÇÃO TEMPORAL (perfil)
+   ====================================================================== */
+.evolucao-ano {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.evolucao-ano:last-child {
+    border-bottom: none;
+}
+
+.evolucao-ano-rotulo {
+    font-weight: 600;
+    min-width: 50px;
+}
+
+.evolucao-ano-valor {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.evolucao-ano-variacao {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.evolucao-ano-variacao.subiu {
+    color: #b23b3b;
+    background: rgba(178, 59, 59, 0.1);
+}
+
+.evolucao-ano-variacao.caiu {
+    color: #2e7d32;
+    background: rgba(46, 125, 50, 0.1);
+}
+
 /* Acessibilidade: foco visível */
 .modal-fechar:focus-visible,
 .ficha-link:focus-visible {

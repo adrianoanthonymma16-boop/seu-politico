@@ -235,5 +235,15 @@ const SeuPoliticoAPI = (() => {
         analisePoderes({ ano, mes } = {}) {
             return requisicao('/analise/poderes', { ano, mes });
         },
+
+        /** Ranking de deputados que mais gastaram (cota parlamentar). */
+        rankingDeputados({ ano, uf, partido, limite } = {}) {
+            return requisicao('/analise/ranking', { ano, uf, partido, limite });
+        },
+
+        /** Busca empresa por CNPJ ou nome no backend. */
+        buscarEmpresa(query) {
+            return requisicao('/analise/buscar-empresa', { q: query });
+        },
     };
 })();

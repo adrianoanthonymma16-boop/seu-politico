@@ -1508,6 +1508,17 @@
             renderizarTabelaDeputado();
             ligarFiltrosTabela('Deputado', renderizarTabelaDeputado);
 
+            // Comparação com a média da UF (carrega imediatamente — dado já vem do backend).
+            renderizarComparacaoMedia(dados.total, dados.mediaUf, d.uf);
+
+            // Presença simplificada (barra visual — carrega em paralelo, sem bloquear).
+            SeuPoliticoAPI.obterFrequenciaDeputado(id, anoSelecionado)
+                .then(renderizarPresencaSimplificada)
+                .catch(() => {});
+
+            // Evolução temporal (gastos 2024→2025→2026 — carrega em paralelo).
+            carregarEvolucaoTemporal(id, anoSelecionado);
+
             // Votações, Presença e Discursos: lazy load (sob demanda).
             // Evita ~16 chamadas sequenciais à Câmara que estouravam o limite de 60s e travavam a página.
 
@@ -1916,6 +1927,96 @@
                 },
             },
         });
+    }
+
+    /* ---- Presença simplificada (barra visual no topo do perfil) ---- */
+    function renderizarPresencaSimplificada(dados) {
+        const secao = $('#presencaSimplificada');
+        const porcentoEl = $('#presencaPorcento');
+        const barraEl = $('#presencaBarra');
+        const detalhesEl = $('#presencaDetalhes');
+        if (!secao || !dados || dados.presencas === undefined) return;
+
+        secao.style.display = '';
+        const taxa = dados.taxaPresenca ?? 0;
+        const cor = taxa >= 75 ? '#2e7d32' : taxa >= 50 ? '#f0ad4e' : '#b23b3b';
+
+        if (porcentoEl) {
+            porcentoEl.textContent = `${MotorAlerta.fmtNumero(taxa, 1)}%`;
+            porcentoEl.style.color = cor;
+        }
+        if (barraEl) {
+            setTimeout(() => { barraEl.style.width = `${Math.min(taxa, 100)}%`; }, 100);
+            barraEl.style.backgroundColor = cor;
+        }
+        if (detalhesEl) {
+            detalhesEl.innerHTML = `
+                <span><i class="fa-solid fa-check" style="color:#2e7d32;" aria-hidden="true"></i> ${dados.presencas} presenças</span>
+                <span><i class="fa-solid fa-clock" style="color:#f0ad4e;" aria-hidden="true"></i> ${dados.faltasJustificadas} justificadas</span>
+                <span><i class="fa-solid fa-xmark" style="color:#b23b3b;" aria-hidden="true"></i> ${dados.faltasInjustificadas} injustificadas</span>
+            `;
+        }
+    }
+
+    /* ---- Comparação com a média da UF ---- */
+    function renderizarComparacaoMedia(total, mediaUf, uf) {
+        const el = $('#perfilComparacaoMedia');
+        if (!el || !mediaUf || mediaUf <= 0) return;
+
+        const diff = ((total - mediaUf) / mediaUf) * 100;
+        const absDiff = Math.abs(diff);
+        if (absDiff < 1) {
+            el.className = 'card-comparacao igual';
+            el.textContent = `≈ Média de ${uf}`;
+        } else if (diff > 0) {
+            el.className = 'card-comparacao acima';
+            el.textContent = `↑ ${MotorAlerta.fmtNumero(absDiff, 0)}% acima da média de ${uf}`;
+        } else {
+            el.className = 'card-comparacao abaixo';
+            el.textContent = `↓ ${MotorAlerta.fmtNumero(absDiff, 0)}% abaixo da média de ${uf}`;
+        }
+        el.style.display = '';
+    }
+
+    /* ---- Evolução temporal (gastos 2024→2025→2026) ---- */
+    async function carregarEvolucaoTemporal(id, anoAtual) {
+        const container = $('#evolucaoTemporal');
+        if (!container) return;
+
+        const anos = [anoAtual - 2, anoAtual - 1, anoAtual].filter((a) => a >= 2022);
+        try {
+            const resultados = await Promise.all(anos.map((ano) =>
+                SeuPoliticoAPI.analiseDeputado(id, ano).catch(() => null)
+            ));
+
+            const dados = resultados.filter(Boolean);
+            if (dados.length < 2) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="card">
+                    <h3 class="section-title" style="margin:0 0 10px;"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Evolução dos gastos</h3>
+                    ${dados.map((d, i) => {
+                        const anterior = dados[i - 1];
+                        let variacao = '';
+                        if (anterior && anterior.total > 0) {
+                            const pct = ((d.total - anterior.total) / anterior.total) * 100;
+                            const cls = pct > 0 ? 'subiu' : pct < 0 ? 'caiu' : '';
+                            variacao = `<span class="evolucao-ano-variacao ${cls}">${pct > 0 ? '↑' : pct < 0 ? '↓' : '≈'} ${MotorAlerta.fmtNumero(Math.abs(pct), 0)}%</span>`;
+                        }
+                        return `
+                            <div class="evolucao-ano">
+                                <span class="evolucao-ano-rotulo">${d.ano}</span>
+                                <span class="evolucao-ano-valor">${MotorAlerta.fmtBRL(d.total)}</span>
+                                ${variacao}
+                            </div>`;
+                    }).join('')}
+                </div>`;
+        } catch (e) {
+            container.style.display = 'none';
+        }
     }
 
     async function carregarPresencaDeputado(id, ano) {
@@ -3334,7 +3435,11 @@
         const min = Number($('#filtroMinParlamentares')?.value || 2);
         return empresasCarregadas.filter((e) => {
             if (e.numParlamentares < min) return false;
-            if (busca && !String(e.fornecedor || '').toLowerCase().includes(busca)) return false;
+            if (busca) {
+                const nomeMatch = String(e.fornecedor || '').toLowerCase().includes(busca);
+                const cnpjMatch = String(e.cnpjCpf || '').replace(/[.\-\/]/g, '').includes(busca.replace(/[.\-\/]/g, ''));
+                if (!nomeMatch && !cnpjMatch) return false;
+            }
             return true;
         });
     }

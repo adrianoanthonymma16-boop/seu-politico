@@ -37,7 +37,7 @@
                     <li><a href="comparar.html"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Comparar</a></li>
                     <li><a href="votacao.html"><i class="fa-solid fa-check-to-slot" aria-hidden="true"></i> Votações</a></li>
                     <li><a href="politico.html" class="ativo" aria-current="page"><i class="fa-solid fa-user" aria-hidden="true"></i> Perfil</a></li>
-                    <li><a href="#"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> Licitações</a></li>
+                    <li><a href="ranking.html"><i class="fa-solid fa-trophy" aria-hidden="true"></i> Ranking</a></li>
                     <li><a href="aprender.html"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Aprenda a fiscalizar</a></li>
                 </ul>
             </nav>
@@ -80,6 +80,7 @@
                     <div class="card">
                         <div class="card-titulo">Total gasto no ano</div>
                         <div class="card-valor" id="perfilTotal">—</div>
+                        <div class="card-comparacao" id="perfilComparacaoMedia" style="display:none;"></div>
                     </div>
                     <div class="card">
                         <div class="card-titulo">Média mensal</div>
@@ -93,6 +94,23 @@
                         <div class="card-titulo">Maior despesa</div>
                         <div class="card-valor" id="perfilMaior">—</div>
                     </div>
+                </div>
+            </section>
+
+            <!-- Presença simplificada (barra visual) -->
+            <section id="presencaSimplificada" aria-label="Presença em plenário" style="display:none;">
+                <div class="card">
+                    <div class="presenca-header">
+                        <div>
+                            <h3 class="section-title" style="margin:0;"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Presença em Plenário</h3>
+                            <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Presenças nas sessões deliberativas do ano.</p>
+                        </div>
+                        <div class="presenca-porcento" id="presencaPorcento">—%</div>
+                    </div>
+                    <div class="presenca-barra-fundo">
+                        <div class="presenca-barra-preenchimento" id="presencaBarra" style="width:0%;"></div>
+                    </div>
+                    <div class="presenca-detalhes" id="presencaDetalhes"></div>
                 </div>
             </section>
 
@@ -110,6 +128,9 @@
                     <canvas id="graficoPerfilLinha" aria-label="Gráfico de linha da evolução mensal de gastos" role="img"></canvas>
                 </div>
             </section>
+
+            <!-- Evolução temporal (anos anteriores) -->
+            <section id="evolucaoTemporal" aria-label="Evolução dos gastos entre anos" style="display:none;"></section>
 
             <!-- Tabela de despesas -->
             <section aria-labelledby="tituloTabela">

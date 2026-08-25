@@ -392,4 +392,68 @@ rota.get('/comparar', async (req, res) => {
     }
 });
 
+/** GET /api/analise/ranking?ano=&uf=&partido=&limite= — ranking de deputados que mais gastaram */
+rota.get('/ranking', async (req, res) => {
+    const ano = Number(req.query.ano) || ANO_PADRAO();
+    const ufFiltro = req.query.uf || '';
+    const partidoFiltro = req.query.partido || '';
+    const limite = Math.min(Number(req.query.limite) || 50, 100);
+    const chave = `analise:ranking:${ano}:${ufFiltro}:${partidoFiltro}:${limite}`;
+
+    try {
+        const cached = await cache.obter(chave);
+        if (cached) return res.json(cached);
+
+        // Lê todos os registros da cota uma vez e agrupa por deputado.
+        const registros = await obterRegistrosCota(ano);
+
+        // Agrupa por nome normalizado.
+        const porNome = new Map();
+        for (const r of registros) {
+            const nomeNorm = normalizarNome(r.nomeParlamentar);
+            if (!porNome.has(nomeNorm)) {
+                porNome.set(nomeNorm, {
+                    nome: r.nomeParlamentar,
+                    partido: r.partido || '',
+                    uf: r.uf || '',
+                    total: 0,
+                    qtd: 0,
+                });
+            }
+            const entry = porNome.get(nomeNorm);
+            entry.total += Number(r.valorLiquido ?? r.valorDocumento) || 0;
+            entry.qtd += 1;
+        }
+
+        // Converte para array, aplica filtros e ordena.
+        let ranking = [...porNome.values()];
+        if (ufFiltro) ranking = ranking.filter((d) => d.uf === ufFiltro.toUpperCase());
+        if (partidoFiltro) ranking = ranking.filter((d) => d.partido === partidoFiltro.toUpperCase());
+        ranking.sort((a, b) => b.total - a.total);
+
+        const totalGasto = ranking.reduce((acc, d) => acc + d.total, 0);
+        const resultado = {
+            ano,
+            filtro: { uf: ufFiltro || null, partido: partidoFiltro || null },
+            totalDeputados: ranking.length,
+            totalGasto,
+            ranking: ranking.slice(0, limite).map((d, i) => ({
+                pos: i + 1,
+                nome: d.nome,
+                partido: d.partido,
+                uf: d.uf,
+                total: d.total,
+                qtd: d.qtd,
+            })),
+        };
+
+        await cache.gravar(chave, resultado, 6 * 3600);
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+        res.json(resultado);
+    } catch (erro) {
+        console.error('[analise/ranking]', erro.message);
+        res.status(erro.status || 502).json({ erro: erro.message });
+    }
+});
+
 module.exports = rota;
