@@ -407,15 +407,20 @@ rota.get('/ranking', async (req, res) => {
         // Lê todos os registros da cota uma vez e agrupa por deputado.
         const registros = await obterRegistrosCota(ano);
 
+        // Mapa nome normalizado → {partido, uf} a partir da API da Câmara.
+        const mapaDeputados = await construirMapaDeputados();
+
         // Agrupa por nome normalizado.
         const porNome = new Map();
         for (const r of registros) {
             const nomeNorm = normalizarNome(r.nomeParlamentar);
             if (!porNome.has(nomeNorm)) {
+                const info = mapaDeputados.get(nomeNorm) || {};
                 porNome.set(nomeNorm, {
                     nome: r.nomeParlamentar,
-                    partido: r.partido || '',
-                    uf: r.uf || '',
+                    partido: info.partido || '',
+                    uf: info.uf || '',
+                    id: info.id || null,
                     total: 0,
                     qtd: 0,
                 });
@@ -445,6 +450,7 @@ rota.get('/ranking', async (req, res) => {
                 nome: d.nome,
                 partido: d.partido,
                 uf: d.uf,
+                id: d.id,
                 total: d.total,
                 qtd: d.qtd,
             })),
@@ -458,5 +464,39 @@ rota.get('/ranking', async (req, res) => {
         res.status(erro.status || 502).json({ erro: erro.message });
     }
 });
+
+/**
+ * Constrói um mapa nome normalizado → {partido, uf, id} a partir de todos
+ * os deputados federais em exercício. Cacheia por 24h.
+ */
+async function construirMapaDeputados() {
+    const chave = 'camara:mapa-deputados:ranking';
+    const cached = await cache.obter(chave);
+    if (cached) return new Map(Object.entries(cached));
+
+    try {
+        const mapa = {};
+        let pagina = 1;
+        let ultimaPagina = 1;
+
+        do {
+            const resultado = await buscarDeputados({ pagina });
+            for (const dep of resultado.dados || []) {
+                const nomeNorm = normalizarNome(dep.nome);
+                if (!mapa[nomeNorm]) {
+                    mapa[nomeNorm] = { partido: dep.partido, uf: dep.uf, id: dep.id };
+                }
+            }
+            ultimaPagina = resultado.links?.ultima || 1;
+            pagina++;
+        } while (pagina <= ultimaPagina);
+
+        await cache.gravar(chave, mapa, 24 * 3600);
+        return new Map(Object.entries(mapa));
+    } catch (erro) {
+        console.error('[analise/ranking] Erro ao construir mapa de deputados:', erro.message);
+        return new Map();
+    }
+}
 
 module.exports = rota;
