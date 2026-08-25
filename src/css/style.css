@@ -2021,7 +2021,7 @@ body.menu-aberto {
    ============================================= */
 .mapa-uf-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     gap: 6px;
     margin-top: 10px;
 }
@@ -2036,6 +2036,8 @@ body.menu-aberto {
     transition: transform 0.15s, box-shadow 0.15s;
     text-decoration: none;
     color: inherit;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .mapa-uf-cell:hover {
@@ -2054,6 +2056,9 @@ body.menu-aberto {
     font-size: 10px;
     opacity: 0.85;
     margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* =============================================
