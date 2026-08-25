@@ -19,6 +19,7 @@
                     <i class="fa-solid fa-bars" aria-hidden="true"></i>
                 </button>
             </div>
+            <div id="PesquisarHeader" style="flex:1;display:flex;justify-content:center;max-width:420px;"></div>
         </section>
     </header>
 
@@ -109,6 +110,22 @@
             placeholder: 'Buscar senador por nome...',
             destino: 'senadores.html',
             filtros: ['partido', 'uf'],
+        });
+        SeuPoliticoBusca.init({
+            alvo: '#PesquisarHeader',
+            placeholder: 'Buscar senador...',
+            destino: 'senadores.html',
+            filtros: [],
+        });
+        document.addEventListener('input', (e) => {
+            const headerInput = document.querySelector('#PesquisarHeader [name="nome"]');
+            if (e.target === headerInput) {
+                const q = (e.target.value || '').toLowerCase();
+                document.querySelectorAll('#listaSenadores .politico-card, #listaSenadores .card').forEach((card) => {
+                    const nome = (card.querySelector('h3')?.textContent || card.textContent || '').toLowerCase();
+                    card.style.display = (!q || nome.includes(q)) ? '' : 'none';
+                });
+            }
         });
     </script>
     <script src="src/js/main.js"></script>

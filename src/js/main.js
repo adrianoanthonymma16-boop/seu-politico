@@ -618,72 +618,10 @@
     }
 
     /* ---- INICIALIZAÇÃO COMUM (menu + busca) ---- */
-    /* Transforma o menu lateral em sanfona (accordion) por grupos.
-       Executa uma única vez; o CSS decide a apresentação por breakpoint:
-       - >=701px: cabeçalhos ocultos, itens à mostra (menu plano)
-       - <=700px: sanfona colapsável com itens centralizados
-       Como o menu é idêntico em todas as páginas, a transformação é feita via JS. */
-    function transformarMenuSanfona(menu) {
-        if (!menu || menu.dataset.sanfona) return;
-        const ul = menu.querySelector('nav > ul');
-        if (!ul || !ul.children.length) return;
-
-        const grupos = [
-            { rotulo: 'Navegação', icone: 'fa-house', hrefs: ['index.html', 'dashboard.html'] },
-            { rotulo: 'Parlamentares', icone: 'fa-users', hrefs: ['resultados.html', 'senadores.html', 'presidente.html', 'candidatos.html', 'politico.html', 'senador.html'] },
-            { rotulo: 'Fiscalização', icone: 'fa-scale-balanced', hrefs: ['executivo.html', 'empresas.html', 'comparar.html', 'votacao.html', '#'] },
-            { rotulo: 'Aprender', icone: 'fa-graduation-cap', hrefs: ['aprender.html'] },
-        ];
-
-        const itens = Array.from(ul.children);
-        const novoUl = document.createElement('ul');
-        novoUl.className = 'menu-sanfona';
-
-        for (const g of grupos) {
-            const itensGrupo = itens.filter((li) => {
-                const a = li.querySelector('a');
-                const href = a ? (a.getAttribute('href') || '').split('?')[0] : '';
-                return g.hrefs.includes(href);
-            });
-            if (!itensGrupo.length) continue;
-
-            const grupoLi = document.createElement('li');
-            grupoLi.className = 'menu-grupo';
-
-            const cab = document.createElement('button');
-            cab.type = 'button';
-            cab.className = 'menu-grupo-cabecalho';
-            cab.setAttribute('aria-expanded', 'true');
-            cab.innerHTML = `<i class="fa-solid ${g.icone}" aria-hidden="true"></i><span>${g.rotulo}</span><i class="fa-solid fa-chevron-down seta" aria-hidden="true"></i>`;
-
-            const sub = document.createElement('ul');
-            sub.className = 'menu-grupo-itens';
-            itensGrupo.forEach((li) => sub.appendChild(li));
-
-            // Abre o grupo que contém o link ativo.
-            if (itensGrupo.some((li) => li.querySelector('a.ativo'))) grupoLi.classList.add('aberto');
-
-            cab.addEventListener('click', () => {
-                const aberto = grupoLi.classList.toggle('aberto');
-                cab.setAttribute('aria-expanded', String(aberto));
-            });
-
-            grupoLi.appendChild(cab);
-            grupoLi.appendChild(sub);
-            novoUl.appendChild(grupoLi);
-        }
-
-        ul.replaceWith(novoUl);
-        menu.dataset.sanfona = '1';
-    }
-
     function iniciarMenuResponsivo() {
         const botao = $('#botaoMenu');
         const menu = $('#menuLateral');
         if (!botao || !menu) return;
-
-        // Transforma em sanfona antes de anexar os listeners de navegação.
-        transformarMenuSanfona(menu);
 
         // Cria backdrop para UX mobile (fecha ao clicar fora)
         let backdrop = document.getElementById('menuBackdrop');
@@ -738,7 +676,7 @@
         // Fecha ao navegar (UX mobile: tocar no link não deixa o drawer aberto)
         menu.querySelectorAll('a').forEach((link) => {
             link.addEventListener('click', () => {
-                if (window.innerWidth <= 700) fecharMenu();
+                if (window.innerWidth <= 768) fecharMenu();
             });
         });
 
@@ -749,7 +687,7 @@
 
         // Ao voltar para desktop, garante menu fechado e limpa backdrop
         window.addEventListener('resize', () => {
-            if (window.innerWidth > 700 && menu.classList.contains('aberto')) fecharMenu();
+            if (window.innerWidth > 768 && menu.classList.contains('aberto')) fecharMenu();
         });
 
         // Clique fora do menu (no conteúdo) fecha - evita drawer preso
@@ -757,7 +695,7 @@
             if (!menu.classList.contains('aberto')) return;
             if (!menu.contains(e.target) && !botao.contains(e.target) && e.target !== backdrop) {
                 // só fecha se clicar fora, não dentro
-                if (window.innerWidth <= 700) {
+                if (window.innerWidth <= 768) {
                     // verifica se o clique foi fora do menu
                     const rect = menu.getBoundingClientRect();
                     if (e.clientY < rect.top || e.clientY > rect.bottom) fecharMenu();
@@ -1131,175 +1069,8 @@
                             renderChunk(filtrados);
                             CacheSessao.gravar({ nome, partido, uf }, filtrados);
                             return;
-}
-        }
-    } catch {
-            renderizarEstadosVazio(lista, 'erro', 'fa-triangle-exclamation', erro.message);
-            notificar(erro.message, 'fa-triangle-exclamation');
-        }
-    }
-
-    /* ======================================================================
-       MODAL — Ficha do Candidato
-       ====================================================================== */
-    function abrirModalCandidato(candidato) {
-        const modal = document.getElementById('modalCandidato');
-        const corpo = document.getElementById('modalCorpo');
-        if (!modal || !corpo) return;
-
-        // Formata valor monetário
-        const fmtBRL = (v) => {
-            if (v == null) return '—';
-            return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
-        };
-
-// Monta o HTML da ficha
-        const fotoUrl = candidato.foto || '';
-        const nome = candidato.nome || '—';
-        const nomeUrna = candidato.nomeUrna || candidato.nome || '—';
-        const partido = candidato.partido || '—';
-        const uf = candidato.uf || '—';
-        const numero = candidato.numero || '—';
-        const vice = candidato.vice || '—';
-        const coligacao = candidato.coligacao || '—';
-        const fichaLimpa = candidato.fichaLimpa;
-
-        // Constrói as linhas da ficha
-        const linhas = [];
-
-        if (candidato.vice) linhas.push({ label: 'Vice', valor: candidato.vice });
-        if (candidato.coligacao) linhas.push({ label: 'Coligação', valor: candidato.coligacao });
-
-        // Links
-        const linksHtml = [];
-        if (candidato.links?.divulgacandcontas) {
-            linksHtml.push(`<a class="ficha-link" href="${escaparHtml(candidato.links.divulgacandcontas)}" target="_blank" rel="noopener"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Ficha TSE</a>`);
-        }
-        if (candidato.links?.datajud) {
-            linksHtml.push(`<a class="ficha-link" href="${escaparHtml(candidato.links.datajud)}" target="_blank" rel="noopener"><i class="fa-solid fa-gavel" aria-hidden="true"></i> Processos</a>`);
-        }
-        if (candidato.links?.pf) {
-            linksHtml.push(`<a class="ficha-link" href="${escaparHtml(candidato.links.pf)}" target="_blank" rel="noopener"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Certidão PF</a>`);
-        }
-        if (candidato.linkWikipedia) {
-            linksHtml.push(`<a class="ficha-link" href="${escaparHtml(candidato.linkWikipedia)}" target="_blank" rel="noopener"><i class="fa-brands fa-wikipedia-w" aria-hidden="true"></i> Perfil</a>`);
-        }
-
-        const fotoHtml = candidato.foto
-            ? `<img src="${escaparHtml(candidato.foto)}" alt="Foto de ${escaparHtml(candidato.nome)}" style="width:100%;height:100%;object-fit:cover;">`
-            : '<i class="fa-solid fa-user" aria-hidden="true" style="font-size:48px;color:var(--text-muted);"></i>';
-
-        // Monta o HTML da ficha
-        const html = `
-            <div class="ficha-candidato">
-                <div class="ficha-header">
-                    <div class="ficha-avatar">
-                        ${candidato.foto
-                            ? `<img src="${escaparHtml(candidato.foto)}" alt="Foto de ${escaparHtml(candidato.nome)}" style="width:100%;height:100%;object-fit:cover;">`
-                            : '<i class="fa-solid fa-user" aria-hidden="true" style="font-size:48px;color:var(--text-muted);"></i>'}
-                    </div>
-                    <h2 class="ficha-nome">${escaparHtml(candidato.nome || '—')}</h2>
-                    <div class="ficha-meta">
-                        <span class="ficha-partido">${escaparHtml(candidato.partido || '—')}</span>
-                        <span class="ficha-uf">${escaparHtml(candidato.uf || '—')}</span>
-                        <span class="ficha-numero">Nº ${escaparHtml(candidato.numero || '—')}</span>
-                    </div>
-                    ${candidato.fichaLimpa != null ? `
-                        <div class="ficha-limpa-badge ${candidato.fichaLimpa ? 'ficha-limpa-ok' : 'ficha-limpa-restricao'}">
-                            ${candidato.fichaLimpa
-                                ? '<i class="fa-solid fa-shield-check" aria-hidden="true"></i> Ficha Limpa declarada'
-                                : '<i class="fa-solid fa-shield-exclamation" aria-hidden="true"></i> Com restrição declarada'}
-                        </div>` : ''}
-                </div>
-
-                <div class="ficha-secao">
-                    <div class="ficha-secao-titulo">Dados Principais</div>
-                    <div class="ficha-linha"><span class="ficha-label">Nome completo</span><span class="ficha-valor">${escaparHtml(candidato.nomeCivil || candidato.nome || '—')}</span></div>
-                    <div class="ficha-linha"><span class="ficha-label">Nome de urna</span><span class="ficha-valor">${escaparHtml(candidato.nomeUrna || candidato.nome || '—')}</span></div>
-                    <div class="ficha-linha"><span class="ficha-label">Partido</span><span class="ficha-valor">${escaparHtml(candidato.partido || '—')}</span></div>
-                    <div class="ficha-linha"><span class="ficha-label">UF</span><span class="ficha-valor">${escaparHtml(candidato.uf || '—')}</span></div>
-                    <div class="ficha-linha"><span class="ficha-label">Número na urna</span><span class="ficha-valor">${escaparHtml(candidato.numero || '—')}</span></div>
-                    ${candidato.vice ? `<div class="ficha-linha"><span class="ficha-label">Vice</span><span class="ficha-valor">${escaparHtml(candidato.vice)}</span></div>` : ''}
-                    ${candidato.coligacao ? `<div class="ficha-linha"><span class="ficha-label">Coligação</span><span class="ficha-valor">${escaparHtml(candidato.coligacao)}</span></div>` : ''}
-                </div>
-
-                ${candidato.fichaLimpa != null ? `
-                <div class="ficha-secao">
-                    <div class="ficha-secao-titulo">Situação de Ficha Limpa</div>
-                    <div class="ficha-linha">
-                        <span class="ficha-label">Status</span>
-                        <span class="ficha-valor ${candidato.fichaLimpa ? 'ficha-limpa-ok' : 'ficha-limpa-restricao'}">
-                            ${candidato.fichaLimpa ? '<i class="fa-solid fa-shield-check" aria-hidden="true"></i> Ficha Limpa declarada' : '<i class="fa-solid fa-shield-exclamation" aria-hidden="true"></i> Com restrição declarada'}
-                        </span>
-                    </div>
-                </div>` : ''}
-
-                <div class="ficha-secao">
-                    <div class="ficha-secao-titulo">Links Oficiais</div>
-                    <div class="ficha-links">
-                        ${candidato.links?.divulgacandcontas ? `<a class="ficha-link" href="${escaparHtml(candidato.links.divulgacandcontas)}" target="_blank" rel="noopener"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Ficha TSE</a>` : ''}
-                        ${candidato.links?.datajud ? `<a class="ficha-link" href="${escaparHtml(candidato.links.datajud)}" target="_blank" rel="noopener"><i class="fa-solid fa-gavel" aria-hidden="true"></i> Processos</a>` : ''}
-                        ${candidato.links?.pf ? `<a class="ficha-link" href="${escaparHtml(candidato.links.pf)}" target="_blank" rel="noopener"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Certidão PF</a>` : ''}
-                        ${candidato.linkWikipedia ? `<a class="ficha-link" href="${escaparHtml(candidato.linkWikipedia)}" target="_blank" rel="noopener"><i class="fa-brands fa-wikipedia-w" aria-hidden="true"></i> Perfil</a>` : ''}
-                    </div>
-                </div>
-            `;
-
-        // Injeta o HTML no modal
-        modalCorpo.innerHTML = html;
-        modal.classList.remove('hidden');
-        modal.removeAttribute('hidden');
-        document.body.style.overflow = 'hidden';
-
-        // Foco no botão fechar para acessibilidade
-        setTimeout(() => {
-            const btnFechar = modalCorpo.querySelector('.modal-fechar');
-            if (btnFechar) btnFechar.focus();
-        }, 50);
-    }
-
-    function fecharModalCandidato() {
-        const modal = document.getElementById('modalCandidato');
-        if (!modal) return;
-        modal.classList.remove('aberto');
-        modal.setAttribute('hidden', '');
-        document.body.style.overflow = '';
-    }
-
-    // Inicializa listeners do modal ao carregar a página
-    function initModalCandidato() {
-        const modal = document.getElementById('modalCandidato');
-        if (!modal) return;
-
-        // Fechar ao clicar no overlay
-        const overlay = modal.querySelector('.modal-overlay');
-        if (overlay) {
-            overlay.addEventListener('click', fecharModalCandidato);
-        }
-
-        // Fechar ao clicar no botão fechar
-        const btnFechar = modal.querySelector('.modal-fechar');
-        if (btnFechar) {
-            btnFechar.addEventListener('click', fecharModalCandidato);
-        }
-
-        // Fechar com ESC
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.hasAttribute('hidden') === false) {
-                fecharModalCandidato();
-            }
-        });
-
-        // Fechar ao clicar na área fora do container
-        const fechaAbaixo = modal.querySelector('.modal-fecha-abaixo');
-        if (fechaAbaixo) {
-            fechaAbaixo.addEventListener('click', fecharModalCandidato);
-        }
-    }
-
-    // Exporta para uso global
-    window.abrirModalCandidato = abrirModalCandidato;
-    window.fecharModalCandidato = fecharModalCandidato;
+                        }
+                    }
                 } catch (e) { /* se a lista estática falhar, cai para a API */ }
             }
 
@@ -1349,14 +1120,12 @@
 
             if (resumo) {
                 resumo.innerHTML = `<p class="page-subtitle">${todos.length} deputado${todos.length === 1 ? '' : 's'} encontrado${todos.length === 1 ? '' : 's'}. Os sinais apontados são neutros — investigue você mesmo.</p>`;
-}
+            }
+            CacheSessao.gravar({ nome, partido, uf }, todos);
+        } catch (erro) {
+            renderizarEstadosVazio(lista, 'erro', 'fa-triangle-exclamation', erro.message);
+            notificar(erro.message, 'fa-triangle-exclamation');
         }
-        }
-    } catch (erro) {
-        renderizarEstadosVazio(lista, 'erro', 'fa-triangle-exclamation', erro.message);
-        notificar(erro.message, 'fa-triangle-exclamation');
-    }
-}
     }
 
     /* ======================================================================
@@ -2962,6 +2731,18 @@
                     </article>`).join('');
             }
 
+            // Clique no card (fora dos links) abre a ficha modal.
+            lista.querySelectorAll('.candidato-card').forEach((card) => {
+                card.style.cursor = 'pointer';
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('a')) return;
+                    const nome = card.dataset.nome;
+                    const partido = card.dataset.partido;
+                    const candidato = candidatos.find((x) => x.nome === nome && x.partido === partido);
+                    if (candidato) abrirModalCandidato(candidato);
+                });
+            });
+
             if (linksOficiais) {
                 linksOficiais.innerHTML = `
                     <div class="sinal sinal-info">
@@ -2977,25 +2758,77 @@
                         </div>
                     </div>`;
             }
-
-            // Adiciona listeners de clique nos cards de candidatos para abrir a ficha
-            lista.querySelectorAll('.candidato-card').forEach((card) => {
-                card.style.cursor = 'pointer';
-                card.addEventListener('click', (e) => {
-                    // Não abre se clicou em um link
-                    if (e.target.closest('a')) return;
-                    const nome = card.dataset.nome;
-                    const partido = card.dataset.partido;
-                    // Busca o candidato completo nos dados
-                    const candidato = candidatos.find(c => c.nome === nome && c.partido === partido);
-                    if (candidato) abrirModalCandidato(candidato);
-                });
-            });
         } catch (erro) {
             renderizarEstadosVazio(lista, 'erro', 'fa-triangle-exclamation', erro.message);
             notificar(erro.message, 'fa-triangle-exclamation');
         }
     }
+
+    /* ======================================================================
+       MODAL — Ficha do Candidato
+       ====================================================================== */
+    function abrirModalCandidato(candidato) {
+        const modal = document.getElementById('modalCandidato');
+        const corpo = document.getElementById('modalCorpo');
+        if (!modal || !corpo) return;
+        corpo.innerHTML = `
+            <div class="ficha-candidato">
+                <div class="ficha-header">
+                    <div class="ficha-avatar">
+                        ${candidato.foto
+                            ? `<img src="${escaparHtml(candidato.foto)}" alt="Foto de ${escaparHtml(candidato.nome)}" style="width:100%;height:100%;object-fit:cover;">`
+                            : '<i class="fa-solid fa-user" aria-hidden="true"></i>'}
+                    </div>
+                    <h3 class="ficha-nome">${escaparHtml(candidato.nome || '—')}</h3>
+                    <div class="ficha-meta">
+                        <span class="ficha-partido">${escaparHtml(candidato.partido || '—')}</span>
+                        <span class="ficha-numero">Nº ${escaparHtml(candidato.numero || '—')}</span>
+                    </div>
+                    ${candidato.fichaLimpa != null ? `
+                        <div class="ficha-limpa-badge ${candidato.fichaLimpa ? 'ficha-limpa-ok' : 'ficha-limpa-restricao'}">
+                            ${candidato.fichaLimpa
+                                ? '<i class="fa-solid fa-shield-check" aria-hidden="true"></i> Ficha Limpa declarada'
+                                : '<i class="fa-solid fa-shield-exclamation" aria-hidden="true"></i> Com restrição declarada'}
+                        </div>` : ''}
+                </div>
+                <div class="ficha-secao">
+                    <div class="ficha-secao-titulo">Dados</div>
+                    ${candidato.vice ? `<div class="ficha-linha"><span class="ficha-label">Vice</span><span class="ficha-valor">${escaparHtml(candidato.vice)}</span></div>` : ''}
+                    ${candidato.coligacao ? `<div class="ficha-linha"><span class="ficha-label">Coligação</span><span class="ficha-valor">${escaparHtml(candidato.coligacao)}</span></div>` : ''}
+                    <div class="ficha-linha"><span class="ficha-label">Partido</span><span class="ficha-valor">${escaparHtml(candidato.partido || '—')}</span></div>
+                    <div class="ficha-linha"><span class="ficha-label">Número</span><span class="ficha-valor">${escaparHtml(candidato.numero || '—')}</span></div>
+                </div>
+                <div class="ficha-links">
+                    ${candidato.links && candidato.links.divulgacandcontas ? `<a class="ficha-link" href="${escaparHtml(candidato.links.divulgacandcontas)}" target="_blank" rel="noopener"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Ficha TSE</a>` : ''}
+                    ${candidato.links && candidato.links.datajud ? `<a class="ficha-link" href="${escaparHtml(candidato.links.datajud)}" target="_blank" rel="noopener"><i class="fa-solid fa-gavel" aria-hidden="true"></i> Processos</a>` : ''}
+                    ${candidato.links && candidato.links.pf ? `<a class="ficha-link" href="${escaparHtml(candidato.links.pf)}" target="_blank" rel="noopener"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Certidão PF</a>` : ''}
+                    ${candidato.linkWikipedia ? `<a class="ficha-link" href="${escaparHtml(candidato.linkWikipedia)}" target="_blank" rel="noopener"><i class="fa-brands fa-wikipedia-w" aria-hidden="true"></i> Perfil</a>` : ''}
+                </div>
+            </div>`;
+        modal.removeAttribute('hidden');
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => { const b = modal.querySelector('.modal-fechar'); if (b) b.focus(); }, 50);
+    }
+    function fecharModalCandidato() {
+        const modal = document.getElementById('modalCandidato');
+        if (!modal) return;
+        modal.setAttribute('hidden', '');
+        modal.hidden = true;
+        document.body.style.overflow = '';
+    }
+    function initModalCandidato() {
+        const modal = document.getElementById('modalCandidato');
+        if (!modal) return;
+        modal.querySelector('.modal-overlay')?.addEventListener('click', fecharModalCandidato);
+        modal.querySelector('.modal-fechar')?.addEventListener('click', fecharModalCandidato);
+        modal.querySelector('.modal-fecha')?.addEventListener('click', fecharModalCandidato);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.hidden) fecharModalCandidato();
+        });
+    }
+    window.abrirModalCandidato = abrirModalCandidato;
+    window.fecharModalCandidato = fecharModalCandidato;
 
     /* ======================================================================
        COMPARAÇÃO
@@ -3657,6 +3490,6 @@
         ligarCompartilhamento();
         iniciarAtualizacaoAutomatica();
         rotearPagina();
-        initModalCandidato(); // Inicializa modal de ficha do candidato
+        initModalCandidato();
     });
 })();

@@ -19,6 +19,7 @@
                     <i class="fa-solid fa-bars" aria-hidden="true"></i>
                 </button>
             </div>
+            <div id="PesquisarHeader" style="flex:1;display:flex;justify-content:center;max-width:420px;"></div>
         </section>
     </header>
 
@@ -108,6 +109,24 @@
             placeholder: 'Buscar deputado por nome...',
             destino: 'resultados.html',
             filtros: ['partido', 'uf'],
+        });
+        // Header reativa (mesmo contexto: deputados)
+        SeuPoliticoBusca.init({
+            alvo: '#PesquisarHeader',
+            placeholder: 'Buscar deputado...',
+            destino: 'resultados.html',
+            filtros: [],
+        });
+        // Filtragem reativa ao digitar (filtra cards já renderizados)
+        document.addEventListener('input', (e) => {
+            const headerInput = document.querySelector('#PesquisarHeader [name="nome"]');
+            if (e.target === headerInput) {
+                const q = (e.target.value || '').toLowerCase();
+                document.querySelectorAll('#listaResultados .politico-card').forEach((card) => {
+                    const nome = (card.querySelector('h3')?.textContent || '').toLowerCase();
+                    card.style.display = (!q || nome.includes(q)) ? '' : 'none';
+                });
+            }
         });
     </script>
     <script src="src/js/main.js"></script>

@@ -60,8 +60,6 @@
 
         // Inserir ANTES do botão do menu (à esquerda do menu hambúrguer)
         const botaoMenu = document.getElementById('botaoMenu');
-        const alvo = document.querySelector('header section');
-        if (!alvo) return;
 
         if (botaoMenu) {
             alvo.insertBefore(btn, botaoMenu);
