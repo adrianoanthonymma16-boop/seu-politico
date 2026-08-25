@@ -139,6 +139,7 @@
     <script>
         (() => {
             const UFs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+            const PARTIDOS = ['AVANTE','CIDADANIA','DC','MDB','NOVO','PCdoB','PCB','PDT','PL','PMB','PMN','PODE','PP','PRD','PRTB','PSB','PSD','PSDB','PSOL','PSTU','PT','PV','REPUBLICANOS','SOLIDARIEDADE','UNIÃO','UP'];
 
             // Preenche UFs.
             const selUf = document.getElementById('filtroUfRanking');
@@ -146,6 +147,14 @@
                 const o = document.createElement('option');
                 o.value = uf; o.textContent = uf;
                 selUf.appendChild(o);
+            });
+
+            // Preenche partidos.
+            const selPartido = document.getElementById('filtroPartidoRanking');
+            PARTIDOS.forEach((p) => {
+                const o = document.createElement('option');
+                o.value = p; o.textContent = p;
+                selPartido.appendChild(o);
             });
 
             async function carregar() {

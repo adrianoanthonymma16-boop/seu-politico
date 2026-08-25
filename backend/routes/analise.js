@@ -428,7 +428,10 @@ rota.get('/ranking', async (req, res) => {
         // Converte para array, aplica filtros e ordena.
         let ranking = [...porNome.values()];
         if (ufFiltro) ranking = ranking.filter((d) => d.uf === ufFiltro.toUpperCase());
-        if (partidoFiltro) ranking = ranking.filter((d) => d.partido === partidoFiltro.toUpperCase());
+        if (partidoFiltro) {
+            const pf = partidoFiltro.toUpperCase();
+            ranking = ranking.filter((d) => (d.partido || '').toUpperCase() === pf);
+        }
         ranking.sort((a, b) => b.total - a.total);
 
         const totalGasto = ranking.reduce((acc, d) => acc + d.total, 0);
