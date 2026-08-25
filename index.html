@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Seu Político — ferramenta de transparência cidadã que analisa dados públicos e aponta padrões de gastos de forma neutra e acessível.">
     <title>Seu Político — Transparência Cidadã</title>
+    <meta name="theme-color" content="#00d4ff">
+    <link rel="manifest" href="manifest.json">
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
@@ -152,5 +154,10 @@
     <script src="src/js/api.js"></script>
     <script src="src/js/alerts.js"></script>
     <script src="src/js/main.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
 </body>
 </html>

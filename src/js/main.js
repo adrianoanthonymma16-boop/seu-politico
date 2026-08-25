@@ -1519,6 +1519,23 @@
             // Evolução temporal (gastos 2024→2025→2026 — carrega em paralelo).
             carregarEvolucaoTemporal(id, anoSelecionado);
 
+            // Sparklines — mini-barras mês a mês (imediato, sem chamada extra).
+            renderizarSparklines(dados.serieMensal, anoSelecionado);
+
+            // Indicador vs. eleição (imediato, sem chamada extra).
+            renderizarIndicadorEleitoral(dados.total, anoSelecionado, d.uf);
+
+            // Timeline votos + gastos (carrega em paralelo).
+            carregarTimelineVotosGastos(id, anoSelecionado);
+
+            // Comparação com mandatos anteriores (carrega em paralelo).
+            carregarMandatosAnteriores(id, anoSelecionado);
+
+            // Mapa de gastos por UF (precisa dos dados gerais — busca em paralelo).
+            SeuPoliticoAPI.analiseGeral(anoSelecionado)
+                .then((geral) => { renderizarMapaUf(geral.porUf); })
+                .catch(() => {});
+
             // Votações, Presença e Discursos: lazy load (sob demanda).
             // Evita ~16 chamadas sequenciais à Câmara que estouravam o limite de 60s e travavam a página.
 
@@ -2024,6 +2041,223 @@
         } catch (e) {
             container.style.display = 'none';
         }
+    }
+
+    /* ---- Sparklines — mini-barras mês a mês ---- */
+    function renderizarSparklines(serieMensal, ano) {
+        const container = $('#sparklinesPerfil');
+        if (!container || !serieMensal || !serieMensal.length) return;
+
+        const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const maxValor = Math.max(...serieMensal.map((s) => s.valor || 0));
+        const barColor = 'var(--primary)';
+        const emptyColor = 'rgba(255,255,255,0.06)';
+
+        // Garante 12 meses.
+        const preenchido = Array.from({ length: 12 }, (_, i) => {
+            const encontrado = serieMensal.find((s) => Number(s.mes) === i + 1);
+            return encontrado || { mes: i + 1, valor: 0 };
+        });
+
+        container.innerHTML = `
+            <div class="card">
+                <h3 class="section-title" style="margin:0 0 10px;"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i> Gastos mês a mês (${ano})</h3>
+                <div class="sparkline-container">
+                    ${preenchido.map((s) => {
+                        const h = maxValor > 0 ? Math.max(2, (s.valor / maxValor) * 100) : 2;
+                        const cor = s.valor > 0 ? barColor : emptyColor;
+                        return `<div class="sparkline-bar" style="height:${h}%;background:${cor};" data-tooltip="${meses[s.mes - 1]}: ${MotorAlerta.fmtBRL(s.valor)}"></div>`;
+                    }).join('')}
+                </div>
+                <div class="sparkline-labels">
+                    ${preenchido.map((s) => `<span>${meses[s.mes - 1]}</span>`).join('')}
+                </div>
+            </div>`;
+
+        container.style.display = '';
+    }
+
+    /* ---- Indicador vs. eleição (gasto em ano eleitoral vs. não eleitoral) ---- */
+    function renderizarIndicadorEleitoral(total, anoAtual, uf) {
+        const container = $('#indicadorEleitoral');
+        if (!container) return;
+
+        const ANOS_ELEICAO = [2018, 2022, 2026];
+        const ehEleitoral = ANOS_ELEICAO.includes(anoAtual);
+
+        let texto = '';
+        if (ehEleitoral) {
+            texto = `<i class="fa-solid fa-vote-yea eleitoral-icon" aria-hidden="true"></i>
+                <strong>Ano eleitoral (${anoAtual})</strong> — Valores podem estar elevados devido a compromissos de campanha e agenda política.`;
+        } else {
+            // Compara com o último ano eleitoral anterior.
+            const ultimoEleitoral = ANOS_ELEICAO.filter((a) => a < anoAtual).pop();
+            if (ultimoEleitoral) {
+                texto = `<i class="fa-solid fa-calendar-check eleitoral-icon" aria-hidden="true"></i>
+                    Ano não eleitoral. Último ciclo eleitoral: ${ultimoEleitoral}.`;
+            } else {
+                texto = `<i class="fa-solid fa-calendar eleitoral-icon" aria-hidden="true"></i>
+                    Ano não eleitoral.`;
+            }
+        }
+
+        container.innerHTML = `<div class="card card-comparacao-eleitoral">${texto}</div>`;
+        container.style.display = '';
+    }
+
+    /* ---- Timeline votos + gastos (correlaciona votos e despesas) ---- */
+    async function carregarTimelineVotosGastos(id, ano) {
+        const container = $('#timelineVotosGastos');
+        if (!container) return;
+
+        try {
+            const [votacoes, dadosAnalise] = await Promise.all([
+                SeuPoliticoAPI.obterVotacoesDeputado(id, ano).catch(() => []),
+                SeuPoliticoAPI.analiseDeputado(id, ano).catch(() => null),
+            ]);
+
+            const serie = dadosAnalise?.serieMensal || [];
+            if (!votacoes.length && !serie.length) {
+                container.style.display = 'none';
+                return;
+            }
+
+            // Mescla votações e gastos mensais em uma timeline.
+            const eventos = [];
+
+            // Adiciona votos.
+            (votacoes || []).slice(0, 10).forEach((v) => {
+                eventos.push({
+                    data: v.data || v.hora || '',
+                    tipo: 'voto',
+                    descricao: v.descricao || v.proposicao?.sigla + ' ' + v.proposicao?.numero || 'Votação',
+                    detalhes: v.descricaoMorAgradecimento || '',
+                });
+            });
+
+            // Adiciona gastos mensais.
+            serie.forEach((s) => {
+                eventos.push({
+                    data: `${ano}-${String(s.mes).padStart(2, '0')}-01`,
+                    tipo: 'gasto',
+                    descricao: `Gasto mensal: ${MotorAlerta.fmtBRL(s.valor)}`,
+                    detalhes: '',
+                });
+            });
+
+            // Ordena por data.
+            eventos.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+
+            if (!eventos.length) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="card">
+                    <h3 class="section-title" style="margin:0 0 10px;"><i class="fa-solid fa-timeline" aria-hidden="true"></i> Timeline — votos e gastos (${ano})</h3>
+                    <div class="timeline-eixo">
+                        ${eventos.slice(0, 20).map((ev) => `
+                            <div class="timeline-evento ${ev.tipo}">
+                                <div class="evento-data">${ev.data || '—'}</div>
+                                <div class="evento-tipo ${ev.tipo}">${ev.tipo === 'voto' ? 'Votação' : 'Gasto'}</div>
+                                <div>${escaparHtml(ev.descricao)}</div>
+                                ${ev.detalhes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${escaparHtml(ev.detalhes)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+
+            container.style.display = '';
+        } catch (e) {
+            container.style.display = 'none';
+        }
+    }
+
+    /* ---- Comparação com mandatos anteriores ---- */
+    async function carregarMandatosAnteriores(id, anoAtual) {
+        const container = $('#mandatosAnteriores');
+        if (!container) return;
+
+        // Pega os 3 últimos anos (excluindo o atual).
+        const anos = [anoAtual - 3, anoAtual - 2, anoAtual - 1].filter((a) => a >= 2022);
+        if (!anos.length) {
+            container.style.display = 'none';
+            return;
+        }
+
+        try {
+            const resultados = await Promise.all(anos.map((ano) =>
+                SeuPoliticoAPI.analiseDeputado(id, ano).catch(() => null)
+            ));
+
+            const dados = resultados.filter(Boolean);
+            if (!dados.length) {
+                container.style.display = 'none';
+                return;
+            }
+
+            const maxTotal = Math.max(...dados.map((d) => d.total || 0));
+
+            container.innerHTML = `
+                <div class="card">
+                    <h3 class="section-title" style="margin:0 0 10px;"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Mandatos anteriores</h3>
+                    ${dados.map((d) => {
+                        const pct = maxTotal > 0 ? ((d.total || 0) / maxTotal) * 100 : 0;
+                        const cor = d.ano >= anoAtual - 1 ? 'var(--primary)' : 'rgba(255,255,255,0.2)';
+                        return `
+                            <div class="mandato-anterior-card">
+                                <span class="mandato-periodo">${d.ano}</span>
+                                <div class="mandato-barra-bg">
+                                    <div class="mandato-barra-fill" style="width:${pct}%;background:${cor};"></div>
+                                </div>
+                                <span class="mandato-valor">${MotorAlerta.fmtBRL(d.total)}</span>
+                            </div>`;
+                    }).join('')}
+                </div>`;
+
+            container.style.display = '';
+        } catch (e) {
+            container.style.display = 'none';
+        }
+    }
+
+    /* ---- Mapa de gastos por UF (heatmap) ---- */
+    function renderizarMapaUf(porUf) {
+        const container = $('#mapaGastosUf');
+        if (!container || !porUf || !porUf.length) return;
+
+        const maxValor = Math.max(...porUf.map((d) => d.valor || 0));
+
+        // Cores: verde (pouco) → amarelo → vermelho (muito).
+        function corPorProporcao(pct) {
+            if (pct < 0.33) return `rgba(76, 175, 80, ${0.3 + pct * 2})`;
+            if (pct < 0.66) return `rgba(255, 193, 7, ${0.3 + pct})`;
+            return `rgba(244, 67, 54, ${0.3 + pct * 0.7})`;
+        }
+
+        // UFs brasileiras para o grid.
+        const todasUfs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+        const ufMap = new Map(porUf.map((d) => [d.uf, d]));
+
+        container.innerHTML = `
+            <div class="card">
+                <h3 class="section-title" style="margin:0 0 10px;"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Gastos por estado</h3>
+                <div class="mapa-uf-grid">
+                    ${todasUfs.map((uf) => {
+                        const dados = ufMap.get(uf);
+                        const valor = dados?.valor || 0;
+                        const pct = maxValor > 0 ? valor / maxValor : 0;
+                        return `
+                            <a href="ranking.html?uf=${uf}" class="mapa-uf-cell" style="background:${corPorProporcao(pct)};">
+                                <span class="uf-sigla">${uf}</span>
+                                <span class="uf-valor">${MotorAlerta.fmtBRL(valor)}</span>
+                            </a>`;
+                    }).join('')}
+                </div>
+            </div>`;
+
+        container.style.display = '';
     }
 
     async function carregarPresencaDeputado(id, ano) {

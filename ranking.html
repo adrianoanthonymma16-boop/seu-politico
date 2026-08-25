@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Ranking dos deputados que mais gastaram a cota parlamentar — Seu Político.">
     <title>Ranking de Gastos — Seu Político</title>
+    <meta name="theme-color" content="#00d4ff">
+    <link rel="manifest" href="manifest.json">
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
@@ -91,9 +93,23 @@
             <!-- Resumo -->
             <div id="resumoRanking" class="card-grid" style="margin:14px 0;"></div>
 
+            <!-- Ações: compartilhar + exportar -->
+            <div class="ranking-actions" style="margin:10px 0;">
+                <button class="btn btn-outline" id="botaoCompartilharRanking" type="button">
+                    <i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Compartilhar
+                </button>
+                <button class="btn btn-outline" id="botaoExportarRanking" type="button">
+                    <i class="fa-solid fa-download" aria-hidden="true"></i> Exportar CSV
+                </button>
+            </div>
+
             <!-- Ranking -->
             <section id="listaRanking" aria-live="polite">
-                <div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando ranking...</p></div>
+                <div class="skeleton skeleton-ranking"></div>
+                <div class="skeleton skeleton-ranking"></div>
+                <div class="skeleton skeleton-ranking"></div>
+                <div class="skeleton skeleton-ranking"></div>
+                <div class="skeleton skeleton-ranking"></div>
             </section>
         </main>
     </div>
@@ -141,21 +157,63 @@
             const UFs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
             const PARTIDOS = ['AVANTE','CIDADANIA','DC','MDB','NOVO','PCdoB','PCB','PDT','PL','PMB','PMN','PODE','PP','PRD','PRTB','PSB','PSD','PSDB','PSOL','PSTU','PT','PV','REPUBLICANOS','SOLIDARIEDADE','UNIÃO','UP'];
 
-            // Preenche UFs.
             const selUf = document.getElementById('filtroUfRanking');
-            UFs.forEach((uf) => {
-                const o = document.createElement('option');
-                o.value = uf; o.textContent = uf;
-                selUf.appendChild(o);
-            });
+            UFs.forEach((uf) => { const o = document.createElement('option'); o.value = uf; o.textContent = uf; selUf.appendChild(o); });
 
-            // Preenche partidos.
             const selPartido = document.getElementById('filtroPartidoRanking');
-            PARTIDOS.forEach((p) => {
-                const o = document.createElement('option');
-                o.value = p; o.textContent = p;
-                selPartido.appendChild(o);
-            });
+            PARTIDOS.forEach((p) => { const o = document.createElement('option'); o.value = p; o.textContent = p; selPartido.appendChild(o); });
+
+            // --- URL sync ---
+            function lerParams() {
+                const p = new URLSearchParams(window.location.search);
+                if (p.get('ano')) document.getElementById('seletorAnoRanking').value = p.get('ano');
+                if (p.get('uf')) document.getElementById('filtroUfRanking').value = p.get('uf');
+                if (p.get('partido')) document.getElementById('filtroPartidoRanking').value = p.get('partido');
+                if (p.get('limite')) document.getElementById('filtroLimiteRanking').value = p.get('limite');
+            }
+            function gravarParams(ano, uf, partido, limite) {
+                const p = new URLSearchParams();
+                if (ano) p.set('ano', ano);
+                if (uf) p.set('uf', uf);
+                if (partido) p.set('partido', partido);
+                if (limite && limite !== '50') p.set('limite', limite);
+                const qs = p.toString();
+                const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+                window.history.replaceState(null, '', url);
+            }
+
+            // --- Skeleton helper ---
+            function skeletonRanking(n = 5) {
+                return Array.from({ length: n }, () => '<div class="skeleton skeleton-ranking"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text lg"></div><div class="skeleton skeleton-text sm"></div></div><div class="skeleton skeleton-text" style="width:80px;height:18px;"></div></div>').join('');
+            }
+
+            // --- CSV export ---
+            let dadosAtuais = [];
+            function exportarCSV() {
+                if (!dadosAtuais.length) return;
+                const header = 'Posição,Nome,Partido,UF,Total Gasto,Qtd Despesas,Media Mensal\n';
+                const rows = dadosAtuais.map(d => `${d.pos},"${d.nome}","${d.partido}","${d.uf}",${d.total.toFixed(2)},${d.qtd},${(d.total / 12).toFixed(2)}`).join('\n');
+                const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `ranking-gastos-${document.getElementById('seletorAnoRanking').value}.csv`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            }
+
+            // --- Share ---
+            function compartilhar() {
+                const url = window.location.href;
+                if (navigator.share) {
+                    navigator.share({ title: 'Ranking de Gastos — Seu Político', url });
+                } else if (navigator.clipboard) {
+                    navigator.clipboard.writeText(url);
+                    const btn = document.getElementById('botaoCompartilharRanking');
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Link copiado!';
+                    setTimeout(() => { btn.innerHTML = original; }, 2000);
+                }
+            }
 
             async function carregar() {
                 const ano = document.getElementById('seletorAnoRanking').value;
@@ -165,13 +223,14 @@
                 const container = document.getElementById('listaRanking');
                 const resumo = document.getElementById('resumoRanking');
 
-                container.innerHTML = '<div class="carregando"><i class="fa-solid fa-circle-notch" aria-hidden="true"></i><p>Carregando ranking...</p></div>';
+                gravarParams(ano, uf, partido, limite);
+                container.innerHTML = skeletonRanking(Number(limite) || 5);
 
                 try {
                     const dados = await SeuPoliticoAPI.rankingDeputados({ ano, uf, partido, limite });
                     const ranking = dados.ranking || [];
+                    dadosAtuais = ranking;
 
-                    // Resumo.
                     resumo.innerHTML = `
                         <div class="card">
                             <div class="card-titulo">Deputados no ranking</div>
@@ -220,10 +279,13 @@
             }
 
             document.getElementById('botaoAtualizarRanking').addEventListener('click', carregar);
-            document.getElementById('seletorAnoRanking').addEventListener('change', carregar);
-            document.getElementById('filtroUfRanking').addEventListener('change', carregar);
-            document.getElementById('filtroPartidoRanking').addEventListener('change', carregar);
-            document.getElementById('filtroLimiteRanking').addEventListener('change', carregar);
+            document.getElementById('botaoCompartilharRanking').addEventListener('click', compartilhar);
+            document.getElementById('botaoExportarRanking').addEventListener('click', exportarCSV);
+            ['seletorAnoRanking', 'filtroUfRanking', 'filtroPartidoRanking', 'filtroLimiteRanking'].forEach((id) => {
+                document.getElementById(id).addEventListener('change', carregar);
+            });
+
+            lerParams();
             carregar();
         })();
     </script>

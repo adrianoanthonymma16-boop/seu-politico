@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Perfil de parlamentar com histórico de gastos e análise — Seu Político.">
     <title>Perfil do Parlamentar — Seu Político</title>
+    <meta name="theme-color" content="#00d4ff">
+    <link rel="manifest" href="manifest.json">
 
     <link rel="stylesheet" href="src/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="src/css/style.css">
@@ -131,6 +133,21 @@
 
             <!-- Evolução temporal (anos anteriores) -->
             <section id="evolucaoTemporal" aria-label="Evolução dos gastos entre anos" style="display:none;"></section>
+
+            <!-- Sparklines — mini-barras mês a mês -->
+            <section id="sparklinesPerfil" aria-label="Gastos mês a mês" style="display:none;"></section>
+
+            <!-- Indicador vs. eleição -->
+            <section id="indicadorEleitoral" aria-label="Comparação com período eleitoral" style="display:none;"></section>
+
+            <!-- Timeline votos + gastos -->
+            <section id="timelineVotosGastos" aria-label="Timeline de votos e gastos" style="display:none;"></section>
+
+            <!-- Comparação com mandatos anteriores -->
+            <section id="mandatosAnteriores" aria-label="Comparação com mandatos anteriores" style="display:none;"></section>
+
+            <!-- Mapa de gastos por UF -->
+            <section id="mapaGastosUf" aria-label="Gastos por estado" style="display:none;"></section>
 
             <!-- Tabela de despesas -->
             <section aria-labelledby="tituloTabela">
